@@ -1431,6 +1431,10 @@ Error SceneState::pack(Node *p_scene) {
 		Ref<PackedScene> instance = ResourceLoader::load(scene_path);
 		if (instance.is_valid()) {
 			base_scene_idx = _vm_get_variant(instance, variant_map);
+			// Assigned here rather than through _update_base_scene_state(),
+			// because variants is built further down from variant_map and is
+			// still empty at this point.
+			base_scene_state = instance->get_state();
 		}
 	}
 
@@ -1517,6 +1521,7 @@ void SceneState::clear() {
 	ids.clear();
 	id_paths.clear();
 	base_scene_idx = -1;
+	base_scene_state.unref();
 }
 
 Error SceneState::copy_from(const Ref<SceneState> &p_scene_state) {
@@ -1549,19 +1554,30 @@ Error SceneState::copy_from(const Ref<SceneState> &p_scene_state) {
 		editable_instances.append(E);
 	}
 	base_scene_idx = p_scene_state->base_scene_idx;
+	base_scene_state = p_scene_state->base_scene_state;
 
 	return OK;
 }
 
-Ref<SceneState> SceneState::get_base_scene_state() const {
-	if (base_scene_idx >= 0) {
+void SceneState::_update_base_scene_state() {
+	base_scene_state.unref();
+
+	if (base_scene_idx >= 0 && base_scene_idx < variants.size()) {
 		Ref<PackedScene> ps = variants[base_scene_idx];
 		if (ps.is_valid()) {
-			return ps->get_state();
+			base_scene_state = ps->get_state();
 		}
 	}
+}
 
-	return Ref<SceneState>();
+Ref<SceneState> SceneState::get_base_scene_state() const {
+	// This is the snapshot taken when the base was linked. It is deliberately not
+	// a fresh variants[base_scene_idx]->get_state(). Saving the base gives that
+	// resource a new state (see PackedScene::recreate_state). A live read here
+	// would compare a repack against the new base and store overrides that the
+	// user never made. The direct inheritance path already takes a snapshot, in
+	// set_scene_inherited_state.
+	return base_scene_state;
 }
 
 int SceneState::find_node_by_path(const NodePath &p_node) const {
@@ -1851,6 +1867,7 @@ void SceneState::set_bundled_scene(const Dictionary &p_dictionary) {
 
 	if (p_dictionary.has("base_scene")) {
 		base_scene_idx = p_dictionary["base_scene"];
+		_update_base_scene_state();
 	}
 
 	editable_instances.resize(ei.size());
@@ -2035,12 +2052,8 @@ Node *SceneState::_recover_node_path_index(Node *p_base, int p_idx) const {
 		if (idx == -1) {
 			// Not found, but may belong to a base scene, so search.
 			while (ss && idx == -1 && ss->base_scene_idx >= 0) {
-				Ref<PackedScene> sdata = ss->variants[ss->base_scene_idx];
-				if (sdata.is_null()) {
-					return nullptr;
-				}
-				Ref<SceneState> ssd = sdata->get_state();
-				if (!ssd.is_valid()) {
+				Ref<SceneState> ssd = ss->get_base_scene_state();
+				if (ssd.is_null()) {
 					return nullptr;
 				}
 				ss = ssd.ptr();
@@ -2423,6 +2436,7 @@ void SceneState::add_node_group(int p_node, int p_group) {
 void SceneState::set_base_scene(int p_idx) {
 	ERR_FAIL_INDEX(p_idx, variants.size());
 	base_scene_idx = p_idx;
+	_update_base_scene_state();
 }
 
 void SceneState::add_connection(int p_from, int p_to, int p_signal, int p_method, int p_flags, int p_unbinds, const Vector<int> &p_binds) {
