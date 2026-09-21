@@ -309,7 +309,7 @@ Node *SceneState::instantiate(GenEditState p_edit_state) const {
 			node = sdata->instantiate(p_edit_state == GEN_EDIT_STATE_DISABLED ? PackedScene::GEN_EDIT_STATE_DISABLED : PackedScene::GEN_EDIT_STATE_INSTANCE); //only main gets main edit state
 			ERR_FAIL_NULL_V(node, nullptr);
 			if (p_edit_state != GEN_EDIT_STATE_DISABLED) {
-				node->set_scene_inherited_state(sdata->get_state());
+				node->set_scene_inherited_state(sdata->get_state()->_get_state_for_instantiation());
 			}
 			is_inherited_scene = true;
 		} else if (n.instance >= 0) {
@@ -1431,6 +1431,10 @@ Error SceneState::pack(Node *p_scene) {
 		Ref<PackedScene> instance = ResourceLoader::load(scene_path);
 		if (instance.is_valid()) {
 			base_scene_idx = _vm_get_variant(instance, variant_map);
+			// Assigned here rather than through _update_base_scene_state(),
+			// because variants is built further down from variant_map and is
+			// still empty at this point.
+			base_scene_state = instance->get_state();
 		}
 	}
 
@@ -1517,6 +1521,7 @@ void SceneState::clear() {
 	ids.clear();
 	id_paths.clear();
 	base_scene_idx = -1;
+	base_scene_state.unref();
 }
 
 Error SceneState::copy_from(const Ref<SceneState> &p_scene_state) {
@@ -1549,19 +1554,75 @@ Error SceneState::copy_from(const Ref<SceneState> &p_scene_state) {
 		editable_instances.append(E);
 	}
 	base_scene_idx = p_scene_state->base_scene_idx;
+	base_scene_state = p_scene_state->base_scene_state;
 
 	return OK;
 }
 
-Ref<SceneState> SceneState::get_base_scene_state() const {
-	if (base_scene_idx >= 0) {
+void SceneState::_update_base_scene_state() {
+	base_scene_state.unref();
+
+	if (base_scene_idx >= 0 && base_scene_idx < variants.size()) {
 		Ref<PackedScene> ps = variants[base_scene_idx];
 		if (ps.is_valid()) {
-			return ps->get_state();
+			base_scene_state = ps->get_state();
 		}
 	}
+}
 
-	return Ref<SceneState>();
+Ref<SceneState> SceneState::get_base_scene_state() const {
+	// This is the snapshot taken when the base was linked. It is deliberately not
+	// a fresh variants[base_scene_idx]->get_state(). Saving the base gives that
+	// resource a new state (see PackedScene::recreate_state). A live read here
+	// would compare a repack against the new base and store overrides that the
+	// user never made. The direct inheritance path already takes a snapshot, in
+	// set_scene_inherited_state.
+	return base_scene_state;
+}
+
+// A repack of a tree of nodes diffs it against the snapshot in base_scene_state,
+// so that snapshot has to describe the base the tree was really built from.
+// Saving the base gives its resource a new state (see PackedScene::recreate_state),
+// and from that moment trees built before the save and trees built after it need
+// different snapshots. One scene file has one state, shared by all of them, so the
+// later trees get a copy of it that carries the newer snapshot instead. This state
+// is left alone for the trees that already exist, which still need to compare
+// against the base they came from and still have to be noticed as out of date.
+//
+// The copy is kept, so all trees built from the same base version share one, and a
+// state whose base has not been saved never makes one at all.
+Ref<SceneState> SceneState::_get_state_for_instantiation() const {
+	Ref<SceneState> self = Ref<SceneState>(const_cast<SceneState *>(this));
+
+	if (base_scene_idx < 0 || base_scene_idx >= variants.size()) {
+		return self;
+	}
+
+	Ref<PackedScene> base = variants[base_scene_idx];
+	if (base.is_null()) {
+		return self;
+	}
+
+	// Recursive, because the scene that was saved can be further up the chain.
+	Ref<SceneState> base_state = base->get_state()->_get_state_for_instantiation();
+	if (base_state == base_scene_state) {
+		return self;
+	}
+
+	if (rebased_state.is_null() || rebased_state->base_scene_state != base_state) {
+		Ref<SceneState> rebased;
+		rebased.instantiate();
+		rebased->copy_from(self);
+		rebased->base_scene_state = base_state;
+		// copy_from() leaves these out, and the reload check reads both of them.
+		rebased->path = path;
+#ifdef TOOLS_ENABLED
+		rebased->last_modified_time = last_modified_time;
+#endif
+		rebased_state = rebased;
+	}
+
+	return rebased_state;
 }
 
 int SceneState::find_node_by_path(const NodePath &p_node) const {
@@ -1851,6 +1912,7 @@ void SceneState::set_bundled_scene(const Dictionary &p_dictionary) {
 
 	if (p_dictionary.has("base_scene")) {
 		base_scene_idx = p_dictionary["base_scene"];
+		_update_base_scene_state();
 	}
 
 	editable_instances.resize(ei.size());
@@ -2035,12 +2097,8 @@ Node *SceneState::_recover_node_path_index(Node *p_base, int p_idx) const {
 		if (idx == -1) {
 			// Not found, but may belong to a base scene, so search.
 			while (ss && idx == -1 && ss->base_scene_idx >= 0) {
-				Ref<PackedScene> sdata = ss->variants[ss->base_scene_idx];
-				if (sdata.is_null()) {
-					return nullptr;
-				}
-				Ref<SceneState> ssd = sdata->get_state();
-				if (!ssd.is_valid()) {
+				Ref<SceneState> ssd = ss->get_base_scene_state();
+				if (ssd.is_null()) {
 					return nullptr;
 				}
 				ss = ssd.ptr();
@@ -2423,6 +2481,7 @@ void SceneState::add_node_group(int p_node, int p_group) {
 void SceneState::set_base_scene(int p_idx) {
 	ERR_FAIL_INDEX(p_idx, variants.size());
 	base_scene_idx = p_idx;
+	_update_base_scene_state();
 }
 
 void SceneState::add_connection(int p_from, int p_to, int p_signal, int p_method, int p_flags, int p_unbinds, const Vector<int> &p_binds) {
@@ -2587,7 +2646,7 @@ Node *PackedScene::instantiate(GenEditState p_edit_state) const {
 	}
 
 	if (p_edit_state != GEN_EDIT_STATE_DISABLED) {
-		s->set_scene_instance_state(state);
+		s->set_scene_instance_state(state->_get_state_for_instantiation());
 	}
 
 	if (!is_built_in()) {
