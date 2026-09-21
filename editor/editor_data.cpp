@@ -728,7 +728,46 @@ void EditorData::set_scene_resource(int p_idx, const Ref<PackedScene> &p_scene) 
 	scene_info.scene = p_scene;
 }
 
-bool EditorData::_find_updated_instances(Node *p_root, Node *p_node, HashSet<String> &checked_paths) {
+// Checks a scene state and every scene it inherits from, however deep. A node
+// exposes only the state of the scene it came from directly. An inherited base
+// further up the chain therefore has no node of its own in the tree. Nothing
+// else would ever check it.
+bool EditorData::_scene_state_chain_updated(const Ref<SceneState> &p_state, SceneChainCheck &r_check) {
+	Ref<SceneState> ss = p_state;
+
+	while (ss.is_valid()) {
+		// Noted per state, not per path. Two scenes in one tree can hold
+		// different snapshots of the same base scene, one from before a save and
+		// one from after. Only the older snapshot needs a reload. If the walk
+		// noted the path, the first branch it reached would stand for both, and
+		// the walk would skip the stale one. Noting states also ends the walk if
+		// a chain returns to a state it already saw.
+		if (r_check.visited_states.has(ss->get_instance_id())) {
+			break;
+		}
+		r_check.visited_states.insert(ss->get_instance_id());
+
+		const String path = ss->get_path();
+
+		if (!path.is_empty()) {
+			// Read each file once per pass. A wide tree reaches the same file often.
+			HashMap<String, uint64_t>::Iterator E = r_check.file_times.find(path);
+			if (!E) {
+				E = r_check.file_times.insert(path, FileAccess::get_modified_time(path));
+			}
+
+			if (E->value != ss->get_last_modified_time()) {
+				return true; //external scene changed
+			}
+		}
+
+		ss = ss->get_base_scene_state();
+	}
+
+	return false;
+}
+
+bool EditorData::_find_updated_instances(Node *p_root, Node *p_node, SceneChainCheck &r_check) {
 	Ref<SceneState> ss;
 
 	if (p_node == p_root) {
@@ -737,21 +776,12 @@ bool EditorData::_find_updated_instances(Node *p_root, Node *p_node, HashSet<Str
 		ss = p_node->get_scene_instance_state();
 	}
 
-	if (ss.is_valid()) {
-		String path = ss->get_path();
-
-		if (!checked_paths.has(path)) {
-			uint64_t modified_time = FileAccess::get_modified_time(path);
-			if (modified_time != ss->get_last_modified_time()) {
-				return true; //external scene changed
-			}
-
-			checked_paths.insert(path);
-		}
+	if (_scene_state_chain_updated(ss, r_check)) {
+		return true;
 	}
 
 	for (int i = 0; i < p_node->get_child_count(); i++) {
-		bool found = _find_updated_instances(p_root, p_node->get_child(i), checked_paths);
+		bool found = _find_updated_instances(p_root, p_node->get_child(i), r_check);
 		if (found) {
 			return true;
 		}
@@ -766,9 +796,9 @@ bool EditorData::check_and_update_scene(int p_idx) {
 		return false;
 	}
 
-	HashSet<String> checked_scenes;
+	SceneChainCheck check;
 
-	bool must_reload = _find_updated_instances(edited_scene[p_idx].root, edited_scene[p_idx].root, checked_scenes);
+	bool must_reload = _find_updated_instances(edited_scene[p_idx].root, edited_scene[p_idx].root, check);
 
 	if (must_reload) {
 		reload_scene_from_memory(p_idx, false);
