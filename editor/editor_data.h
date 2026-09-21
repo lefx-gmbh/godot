@@ -104,6 +104,10 @@ public:
 class EditorSelection;
 
 class EditorData {
+	// Lets the tests reach the private scene-reload detection pass without a running
+	// editor. Defined in tests/editor/test_scene_inheritance_fixtures.h.
+	friend class TestEditorDataInternalsAccessor;
+
 public:
 	struct CustomType {
 		String name;
@@ -146,7 +150,14 @@ private:
 	int current_edited_scene = -1;
 	int last_created_scene = 1;
 
-	bool _find_updated_instances(Node *p_root, Node *p_node, HashSet<String> &checked_paths);
+	// Bookkeeping for a single pass over the open scene's base scene chains.
+	struct SceneChainCheck {
+		HashSet<ObjectID> visited_states;
+		HashMap<String, uint64_t> file_times;
+	};
+
+	bool _scene_state_chain_updated(const Ref<SceneState> &p_state, SceneChainCheck &r_check);
+	bool _find_updated_instances(Node *p_root, Node *p_node, SceneChainCheck &r_check);
 
 	HashMap<StringName, String> _script_class_icon_paths;
 	HashMap<String, StringName> _script_class_file_to_path;
