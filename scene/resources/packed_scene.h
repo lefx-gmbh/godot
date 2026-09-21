@@ -38,6 +38,8 @@ class PackedScene;
 class SceneState : public RefCounted {
 	GDCLASS(SceneState, RefCounted);
 
+	friend class PackedScene;
+
 	Vector<StringName> names;
 	Vector<Variant> variants;
 	Vector<NodePath> node_paths;
@@ -48,6 +50,15 @@ class SceneState : public RefCounted {
 	mutable HashMap<int, int> base_scene_node_remap;
 
 	int base_scene_idx = -1;
+	// Snapshot of the base scene's state, taken when base_scene_idx is set.
+	// Without it, a chained lookup through variants[base_scene_idx] follows the
+	// base resource as the user edits it. A repack would then compare against
+	// the new base.
+	Ref<SceneState> base_scene_state;
+	// Copy of this state carrying a newer base snapshot, handed to nodes
+	// instantiated after the base scene was saved. See
+	// _get_state_for_instantiation().
+	mutable Ref<SceneState> rebased_state;
 
 	enum {
 		NO_PARENT_SAVED = 0x7FFFFFFF,
@@ -106,6 +117,17 @@ class SceneState : public RefCounted {
 	int _find_base_scene_node_remap_key(int p_idx) const;
 
 	Node *_recover_node_path_index(Node *p_base, int p_idx) const;
+
+	// Sets base_scene_state from variants[base_scene_idx]. It reads the variants
+	// array, so it only works once that array holds the base. Call it after
+	// base_scene_idx changes, unless the caller already has the state in hand.
+	// pack() is that exception: it sets base_scene_idx before it builds variants,
+	// and assigns base_scene_state directly from the scene it just loaded.
+	void _update_base_scene_state();
+
+	// Returns the state that nodes instantiated right now have to be given, which
+	// is this one until the base scene is saved. See the definition.
+	Ref<SceneState> _get_state_for_instantiation() const;
 
 	static Variant _duplicate_recursive(const Variant &p_variant, HashMap<Node *, HashMap<Ref<Resource>, Ref<Resource>>> &p_remap_cache, const Variant &p_fallback, Node *p_for_scene);
 
