@@ -1,76 +1,73 @@
-# Godot Engine
+# LEFX Godot Fixes Fork
 
-<p align="center">
-  <a href="https://godotengine.org">
-    <img src="misc/logo/logo_outlined.svg" width="400" alt="Godot Engine logo">
-  </a>
-</p>
+This repository is a fork of the [Godot Engine](https://github.com/godotengine/godot) that holds bug fixes. Each fix removes one cause that is behind a group of open Godot issues. The fork follows Godot `master` and the current stable release, and adds only these fixes.
 
-## 2D and 3D cross-platform game engine
+This fork is not official. The Godot Foundation and the Godot maintainers do not make it, review it or support it. For the engine itself, use [godotengine/godot](https://github.com/godotengine/godot).
 
-**[Godot Engine](https://godotengine.org) is a feature-packed, cross-platform
-game engine to create 2D and 3D games from a unified interface.** It provides a
-comprehensive set of [common tools](https://godotengine.org/features), so that
-users can focus on making games without having to reinvent the wheel. Games can
-be exported with one click to a number of platforms, including the major desktop
-platforms (Linux, macOS, Windows), mobile platforms (Android, iOS), as well as
-Web-based platforms and [consoles](https://godotengine.org/consoles).
+## AI use
 
-## Free, open source and community-driven
+AI substantially contributes to most fixes/changes in this fork. We use several AI agents and models, from frontier providers and on our own hardware. They do the analysis, write the fixes and write the tests. Other agents and models then review that work and check it a second time.
 
-Godot is completely free and open source under the very permissive [MIT license](https://godotengine.org/license).
-No strings attached, no royalties, nothing. The users' games are theirs, down
-to the last line of engine code. Godot's development is fully independent and
-community-driven, empowering users to help shape their engine to match their
-expectations. It is supported by the [Godot Foundation](https://godot.foundation/)
-not-for-profit.
+A person at LEFX chooses each problem, directs the work, draws up the concepts and makes the decisions. Afterwards we review the code and check the results in the editor.
 
-Before being open sourced in [February 2014](https://github.com/godotengine/godot/commit/0b806ee0fc9097fa7bda7ac0109191c9c5e0a1ac),
-Godot had been developed by [Juan Linietsky](https://github.com/reduz) and
-[Ariel Manzur](https://github.com/punto-) for several years as an in-house
-engine, used to publish several work-for-hire titles.
+Every fix comes with tests, and every claim below has a measurement behind it. Read the code and the tests before you rely on a fix.
 
-![Screenshot of a 3D scene in the Godot Engine editor](https://raw.githubusercontent.com/godotengine/godot-design/master/screenshots/editor_tps_demo_1920x1080.jpg)
+## Not for upstream
 
-## Getting the engine
+The Godot [contribution rules](https://contributing.godotengine.org/en/latest/development/contribution_rules.html) do not accept AI-written code. We respect that rule. For that reason:
 
-### Binary downloads
+- Do not open pull requests to Godot with code from this fork.
+- Do not report a bug to Godot that comes from a build of this fork. First do a check with an official build.
 
-Official binaries for the Godot editor and the export templates can be found
-[on the Godot website](https://godotengine.org/download).
+Discussion about this fork belongs here, not on the Godot issue tracker.
 
-### Compiling from source
+## Branches
 
-[See the official docs](https://docs.godotengine.org/en/latest/engine_details/development/compiling)
-for compilation instructions for every supported platform.
+| Branch | Content | Status |
+| --- | --- | --- |
+| `fixes/master` | Godot `master` with all fixes | Available |
+| `fixes/4.7` | Godot `4.7.x-stable` with all fixes | Planned |
+| `fix/<topic>` | One fix, on top of Godot `master` | Available |
+| `master`, `4.7` | Unchanged copies of Godot `master` and `4.7` | Available |
 
-## Community and contributing
+Branches without a prefix hold Godot as it is. Our releases have tags such as `4.7.2-stable-fixes.1`. We do not change the Godot tags, such as `4.7.2-stable`.
 
-Godot is not only an engine but an ever-growing community of users and engine
-developers. The main community channels are listed [on the homepage](https://godotengine.org/community).
+We bring the `fixes/*` branches up to date with Godot about once a week, and after each stable release. A fix has a place on a branch only when its tests pass there.
 
-The best way to get in touch with the core engine developers is to join the
-[Godot Contributors Chat](https://chat.godotengine.org).
+## Fixes
 
-To get started contributing to the project, see the [contributing guide](CONTRIBUTING.md).
-This document also includes guidelines for reporting bugs.
+### Inherited scenes keep up with their base scene
 
-## Documentation and demos
+Branches: [`fix/stale-base-scene-state`](https://github.com/lefx-gmbh/godot/tree/fix/stale-base-scene-state) and [`fix/editor-reload-base-chain`](https://github.com/lefx-gmbh/godot/tree/fix/editor-reload-base-chain)
 
-The official documentation is hosted on [Read the Docs](https://docs.godotengine.org).
-It is maintained by the Godot community in its own [GitHub repository](https://github.com/godotengine/godot-docs).
+Godot issue: [#7984](https://github.com/godotengine/godot/issues/7984), open since 2016.
 
-The [class reference](https://docs.godotengine.org/en/latest/classes/)
-is also accessible from the Godot editor.
+When you change a base scene, the scenes that inherit from it can lose the change, or show an old version. There are two causes:
 
-We also maintain official demos in their own [GitHub repository](https://github.com/godotengine/godot-demo-projects)
-as well as the [Asset Store](https://store.godotengine.org/).
+1. An inherited scene reads its base scene live during a save. If the base scene changed before that save, the inherited scene stores the wrong data. The fix keeps a copy of the base state that the inherited scene knows. Files: `scene/resources/packed_scene.{cpp,h}`.
+2. The editor looks only at the direct base scene to find scenes that need a reload. A change two or more levels down the chain does not cause a reload. The fix examines the full chain. Files: `editor/editor_data.{cpp,h}`.
 
-There are also a number of other
-[learning resources](https://docs.godotengine.org/en/latest/community/tutorials.html)
-provided by the community, such as text and video tutorials, demos, etc.
-Consult the [community channels](https://godotengine.org/community)
-for more information.
+We rebuilt these Godot issues on Godot `master` (4.8 in development). Each one fails on an unchanged build of the same commit and passes on this fork:
 
-[![Code Triagers Badge](https://www.codetriage.com/godotengine/godot/badges/users.svg)](https://www.codetriage.com/godotengine/godot)
-[![Translate on Weblate](https://hosted.weblate.org/widgets/godot-engine/-/godot/svg-badge.svg)](https://hosted.weblate.org/engage/godot-engine/?utm_source=widget)
+- [#41492](https://github.com/godotengine/godot/issues/41492)
+- [#43032](https://github.com/godotengine/godot/issues/43032)
+- [#57089](https://github.com/godotengine/godot/issues/57089)
+- [#28090](https://github.com/godotengine/godot/issues/28090)
+
+Other reports describe the same symptoms. We did not rebuild them, so we make no claim about them.
+
+## Build
+
+Use the official [compiling instructions](https://docs.godotengine.org/en/latest/contributing/development/compiling/index.html). Before you build, check out the branch you want:
+
+    git clone https://github.com/lefx-gmbh/godot.git
+    cd godot
+    git checkout fixes/master
+
+## Report a problem
+
+We will open the issue tracker on this repository soon. When it is open, tell us the branch, the commit and the steps that cause the problem. If you can, attach a small project that shows it.
+
+## License
+
+Godot is available under the MIT license. See [LICENSE.txt](LICENSE.txt) and [COPYRIGHT.txt](COPYRIGHT.txt). The changes in this fork use the same license. LEFX is not affiliated with or endorsed by the Godot Foundation. LEFX uses the GODOT® name under a permissive license, only to say which engine this fork changes. This fork does not use the Godot logo.
