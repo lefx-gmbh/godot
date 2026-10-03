@@ -3126,11 +3126,10 @@ void Node::_duplicate_properties(const Node *p_root, const Node *p_original, Nod
 			value = value.duplicate(true);
 		}
 
-		if (E.usage & PROPERTY_USAGE_ALWAYS_DUPLICATE) {
-			Resource *res = Object::cast_to<Resource>(value);
-			if (res) { // Duplicate only if it's a resource
-				p_copy->set(name, res->duplicate());
-			}
+		// The flag only adds a copy of a resource. Any other value is set as usual.
+		Resource *res = (E.usage & PROPERTY_USAGE_ALWAYS_DUPLICATE) ? Object::cast_to<Resource>(value) : nullptr;
+		if (res) {
+			p_copy->set(name, res->duplicate());
 		} else {
 			if (value.get_type() == Variant::OBJECT) {
 				Node *property_node = Object::cast_to<Node>(value);
