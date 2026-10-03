@@ -53,6 +53,7 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 | [A duplicated node's connections are not locked](fix-duplicate-inherited-flag.md) | #117415 | `fix/duplicate-inherited-flag` |
 | [Make Unique (Recursive) makes nested resources unique](fix-make-unique-recursive.md) | #94646, #111130 | `fix/make-unique-recursive` |
 | [A node added under an editable instance keeps its place](fix-editable-child-order.md) | #99452 | `fix/editable-child-order` |
+| [Detach Script keeps the values of a custom type](fix-detach-script-values.md) | #120143 | `fix/detach-script-values` |
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
