@@ -33,9 +33,11 @@
 TEST_FORCE_LINK(test_packed_scene)
 
 #include "core/io/dir_access.h"
+#include "core/io/file_access.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
 #include "core/object/callable_mp.h"
+#include "core/object/class_db.h"
 #include "scene/2d/node_2d.h"
 #include "scene/gui/control.h"
 #include "scene/resources/packed_scene.h"
@@ -1072,6 +1074,32 @@ static Node *shortcut_context_at(Node *p_root, const NodePath &p_path) {
 	return control ? control->get_shortcut_context() : nullptr;
 }
 
+// A Node property that takes any value, as a hand-edited file or a placeholder
+// script can leave behind.
+class _TestLooseNodeReference : public Node {
+	GDCLASS(_TestLooseNodeReference, Node);
+	Variant target;
+
+protected:
+	bool _set(const StringName &p_name, const Variant &p_value) {
+		if (p_name != StringName("target")) {
+			return false;
+		}
+		target = p_value;
+		return true;
+	}
+	bool _get(const StringName &p_name, Variant &r_ret) const {
+		if (p_name != StringName("target")) {
+			return false;
+		}
+		r_ret = target;
+		return true;
+	}
+	void _get_property_list(List<PropertyInfo> *p_list) const {
+		p_list->push_back(PropertyInfo(Variant::OBJECT, "target", PROPERTY_HINT_NODE_TYPE, "Node"));
+	}
+};
+
 TEST_CASE("[PackedScene][Editor] Clearing a Node reference set by the base") {
 	SUBCASE("inherited scene") {
 		Ref<PackedScene> base_ps = make_base_with_reference(TestUtils::get_temp_path("clear_ref_inh_base.tscn"), true);
@@ -1138,6 +1166,109 @@ TEST_CASE("[PackedScene][Editor] Clearing a Node reference set by the base") {
 
 		CHECK_EQ(stored_properties(pack_scene(outer)->get_state(), "Base"), "");
 		memdelete(outer);
+	}
+
+	// base sets the reference, middle inherits base, outer inherits middle.
+	SUBCASE("chain of inherited scenes") {
+		Ref<PackedScene> base_ps = make_base_with_reference(TestUtils::get_temp_path("clear_ref_chain_base.tscn"), true);
+		Node *middle = make_inherited(base_ps);
+		Ref<PackedScene> middle_ps = save_and_load(middle, TestUtils::get_temp_path("clear_ref_chain_middle.tscn"));
+
+		// The outer scene clears it. The clear is stored as a null.
+		Node *outer = make_inherited(middle_ps);
+		Object::cast_to<Control>(outer)->set_shortcut_context(nullptr);
+		Ref<SceneState> state = pack_scene(outer)->get_state();
+		CHECK_EQ(stored_properties(state, "Base"), "shortcut_context");
+		CHECK(stored_value(state, "Base", "shortcut_context").get_validated_object() == nullptr);
+		Node *reloaded = round_trip(outer, TestUtils::get_temp_path("clear_ref_chain_outer.tscn"));
+		REQUIRE(reloaded != nullptr);
+		CHECK(shortcut_context_at(reloaded, NodePath(".")) == nullptr);
+		memdelete(reloaded);
+		memdelete(outer);
+
+		// The middle scene clears it. The outer scene follows and stores nothing.
+		Object::cast_to<Control>(middle)->set_shortcut_context(nullptr);
+		middle_ps = save_and_load(middle, TestUtils::get_temp_path("clear_ref_chain_middle_cleared.tscn"));
+		memdelete(middle);
+		outer = make_inherited(middle_ps);
+		CHECK_EQ(stored_properties(pack_scene(outer)->get_state(), "Base"), "");
+		reloaded = round_trip(outer, TestUtils::get_temp_path("clear_ref_chain_outer_unchanged.tscn"));
+		REQUIRE(reloaded != nullptr);
+		CHECK(shortcut_context_at(reloaded, NodePath(".")) == nullptr);
+		memdelete(reloaded);
+		memdelete(outer);
+	}
+
+	// Only a null is a clear. A value that is neither a node nor a path is not stored.
+	SUBCASE("a value that is not a node is not stored") {
+		GDREGISTER_CLASS(_TestLooseNodeReference);
+		Node *base = memnew(_TestLooseNodeReference);
+		base->set_name("Base");
+		Ref<PackedScene> base_ps = save_and_load(base, TestUtils::get_temp_path("clear_ref_loose_base.tscn"));
+		memdelete(base);
+
+		Node *derived = make_inherited(base_ps);
+		derived->set("target", "not a node");
+		CHECK_EQ(stored_properties(pack_scene(derived)->get_state(), "Base"), "");
+		derived->set("target", 7);
+		CHECK_EQ(stored_properties(pack_scene(derived)->get_state(), "Base"), "");
+		memdelete(derived);
+	}
+
+	// Godot 4.2 wrote a clear as an empty NodePath without the node-path marker.
+	// The next save must write a plain null, so that the file heals.
+	SUBCASE("an empty path from Godot 4.2 is saved as a null") {
+		GDREGISTER_CLASS(_TestLooseNodeReference);
+		// Variant::is_null() is also true for a NodePath, so it cannot tell the two apart.
+		auto is_plain_null = [](const Variant &p_value) {
+			return p_value.get_type() == Variant::NIL || (p_value.get_type() == Variant::OBJECT && p_value.get_validated_object() == nullptr);
+		};
+		for (const bool base_sets_reference : { true, false }) {
+			CAPTURE(base_sets_reference);
+			Node *base = memnew(_TestLooseNodeReference);
+			base->set_name("Base");
+			Node *target = memnew(Node);
+			target->set_name("Target");
+			base->add_child(target);
+			target->set_owner(base);
+			if (base_sets_reference) {
+				base->set("target", target);
+			}
+			Ref<PackedScene> base_ps = save_and_load(base, TestUtils::get_temp_path("clear_ref_42_base_" + itos(base_sets_reference) + ".tscn"));
+			memdelete(base);
+
+			Node *derived = make_inherited(base_ps);
+			derived->set("target", NodePath(""));
+			Ref<SceneState> state = pack_scene(derived)->get_state();
+			CHECK_EQ(stored_properties(state, "Base"), String(base_sets_reference ? "target" : ""));
+			CHECK(is_plain_null(stored_value(state, "Base", "target")));
+			CHECK(state->get_node_deferred_nodepath_properties(0).is_empty());
+
+			Node *reloaded = round_trip(derived, TestUtils::get_temp_path("clear_ref_42_derived_" + itos(base_sets_reference) + ".tscn"));
+			REQUIRE(reloaded != nullptr);
+			CHECK(is_plain_null(reloaded->get("target")));
+			memdelete(reloaded);
+			memdelete(derived);
+		}
+	}
+
+	// A clear can also be saved as an empty NodePath with the marker. It must load as a null.
+	SUBCASE("an empty path with the node-path marker loads as a null") {
+		const String base_path = TestUtils::get_temp_path("clear_ref_marked_base.tscn");
+		make_base_with_reference(base_path, true);
+		const String path = TestUtils::get_temp_path("clear_ref_marked_derived.tscn");
+		Ref<FileAccess> file = FileAccess::open(path, FileAccess::WRITE);
+		REQUIRE(file.is_valid());
+		file->store_string("[gd_scene format=3]\n\n[ext_resource type=\"PackedScene\" path=\"" + base_path + "\" id=\"1\"]\n\n" +
+				"[node name=\"Base\" node_paths=PackedStringArray(\"shortcut_context\") instance=ExtResource(\"1\")]\nshortcut_context = NodePath(\"\")\n");
+		file->close();
+
+		Ref<PackedScene> packed_scene = ResourceLoader::load(path, "PackedScene", ResourceFormatLoader::CACHE_MODE_IGNORE_DEEP);
+		REQUIRE(packed_scene.is_valid());
+		Node *root = packed_scene->instantiate();
+		REQUIRE(root != nullptr);
+		CHECK(shortcut_context_at(root, NodePath(".")) == nullptr);
+		memdelete(root);
 	}
 }
 

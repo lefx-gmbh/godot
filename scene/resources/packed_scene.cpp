@@ -890,12 +890,18 @@ Error SceneState::_parse_node(Node *p_owner, Node *p_node, int p_parent_idx, Has
 				}
 				use_deferred_node_path_bit = true;
 			}
+			if (value.get_type() == Variant::NODE_PATH && ((NodePath)value).is_empty()) {
+				// An empty path refers to no node. Godot 4.2 saved a clear in this form, which
+				// does not load as a clear. Save it as a null, so the file heals on the next save.
+				value = Variant();
+			}
 			if (value.get_type() != Variant::NODE_PATH) {
-				if (states_stack.is_empty()) {
+				// In an instance or inherited scene, a null can clear a reference that an
+				// ancestor scene sets. The default check below decides if it is saved.
+				const bool is_null = value.get_type() == Variant::NIL || (value.get_type() == Variant::OBJECT && !value.get_validated_object());
+				if (states_stack.is_empty() || !is_null) {
 					continue; //was never set, ignore.
 				}
-				// Null in an instance or inherited scene. Save it as a plain null if it clears
-				// a reference set by an ancestor scene; the default check below decides.
 				use_deferred_node_path_bit = false;
 			}
 		} else if (E.type == Variant::OBJECT && missing_resource_properties.has(E.name)) {
