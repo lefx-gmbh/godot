@@ -4540,7 +4540,8 @@ List<Node *> SceneTreeDock::paste_nodes(bool p_paste_as_sibling) {
 			// and added to the node_clipboard_edited_scene_owned list.
 			if (d != dup && E2.key->get_owner() == nullptr) {
 				if (node_clipboard_edited_scene_owned.has(const_cast<Node *>(E2.key))) {
-					ur->add_do_method(d, "set_owner", owner);
+					// Like the pasted node, its descendants belong to the edited scene, also inside an editable instance.
+					ur->add_do_method(d, "set_owner", edited_scene ? edited_scene : owner);
 				}
 			}
 		}
