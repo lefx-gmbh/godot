@@ -803,6 +803,29 @@ Variant PlaceHolderScriptInstance::callp(const StringName &p_method, const Varia
 #endif // TOOLS_ENABLED
 }
 
+// Converts r_value to p_type if the engine allows the conversion and it loses nothing.
+// The test for loss is that the conversion back gives the original value.
+static bool _convert_exactly(Variant &r_value, Variant::Type p_type) {
+	if (!Variant::can_convert_strict(r_value.get_type(), p_type)) {
+		return false;
+	}
+	Variant converted;
+	Variant back;
+	Callable::CallError ce;
+	const Variant *arg = &r_value;
+	Variant::construct(p_type, converted, &arg, 1, ce);
+	if (ce.error != Callable::CallError::CALL_OK) {
+		return false;
+	}
+	arg = &converted;
+	Variant::construct(r_value.get_type(), back, &arg, 1, ce);
+	if (ce.error != Callable::CallError::CALL_OK || back != r_value) {
+		return false;
+	}
+	r_value = converted;
+	return true;
+}
+
 void PlaceHolderScriptInstance::update(const List<PropertyInfo> &p_properties, const HashMap<StringName, Variant> &p_values) {
 	HashSet<StringName> new_values;
 	for (const PropertyInfo &E : p_properties) {
@@ -814,6 +837,10 @@ void PlaceHolderScriptInstance::update(const List<PropertyInfo> &p_properties, c
 		new_values.insert(n);
 
 		if (!values.has(n) || (E.type != Variant::NIL && values[n].get_type() != E.type)) {
+			// The property changed its type. Keep a value that converts exactly.
+			if (values.has(n) && _convert_exactly(values[n], E.type)) {
+				continue;
+			}
 			if (p_values.has(n)) {
 				values[n] = p_values[n];
 			}

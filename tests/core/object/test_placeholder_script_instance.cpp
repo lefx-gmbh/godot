@@ -258,6 +258,34 @@ TEST_SUITE("[PlaceholderScriptInstance]") {
 
 			CHECK_EQ(obj->get("prop_a"), Variant(2));
 		}
+
+		SUBCASE("A type change must keep a modified value only when it converts exactly.") {
+			PropertyInfo &prop_a = scr->property_infos.front()->get();
+
+			// The int converts to a float without loss. The value stays.
+			prop_a.type = Variant::FLOAT;
+			scr->default_values["prop_a"] = 0.0;
+			inst->update(scr->property_infos, scr->default_values);
+			CHECK_EQ(obj->get("prop_a"), Variant(1.0));
+			CHECK_EQ(obj->get("prop_a").get_type(), Variant::FLOAT);
+
+			// 1.5 loses its fraction as an int. The new default wins.
+			CHECK(inst->set("prop_a", 1.5));
+			prop_a.type = Variant::INT;
+			scr->default_values["prop_a"] = 0;
+			inst->update(scr->property_infos, scr->default_values);
+			CHECK_EQ(obj->get("prop_a"), Variant(0));
+
+			// A string is an unrelated type, even when it holds a number. The new default wins.
+			prop_a.type = Variant::STRING;
+			scr->default_values["prop_a"] = "";
+			inst->update(scr->property_infos, scr->default_values);
+			CHECK(inst->set("prop_a", "7"));
+			prop_a.type = Variant::INT;
+			scr->default_values["prop_a"] = 0;
+			inst->update(scr->property_infos, scr->default_values);
+			CHECK_EQ(obj->get("prop_a"), Variant(0));
+		}
 	}
 }
 
