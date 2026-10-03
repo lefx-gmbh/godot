@@ -3385,7 +3385,8 @@ Error ResourceImporterScene::import(ResourceUID::ID p_source_id, const String &p
 
 	Dictionary animation_data;
 	if (subresources.has("animations")) {
-		animation_data = subresources["animations"];
+		// A copy: the import fills in every default, and those must not be saved to the .import file.
+		animation_data = Dictionary(subresources["animations"]).duplicate(true);
 	}
 
 	Dictionary mesh_data;
