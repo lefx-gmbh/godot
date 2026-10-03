@@ -233,6 +233,9 @@ class ResourceImporterScene : public ResourceImporter {
 
 	String _scene_import_type = "PackedScene";
 
+	// Animations to save to their own files, with their save path, once the post-import script and plugins ran.
+	LocalVector<Pair<Ref<Animation>, String>> pending_animation_saves;
+
 public:
 	static const String material_extension[3];
 
