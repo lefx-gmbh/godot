@@ -37,6 +37,7 @@ TEST_FORCE_LINK(test_packed_scene)
 #include "core/io/resource_saver.h"
 #include "core/object/callable_mp.h"
 #include "scene/2d/node_2d.h"
+#include "scene/gui/control.h"
 #include "scene/resources/packed_scene.h"
 #include "tests/test_utils.h"
 
@@ -1041,6 +1042,102 @@ TEST_CASE("[PackedScene][Editor] Stale base state: repeated base saves") {
 
 			memdelete(outer);
 		}
+	}
+}
+
+// -----------------------------------------------------------------------------
+// A property of type Node that the base sets, cleared in a scene built on that base.
+// pack() skipped every null Node reference as "never set", so the clear was not
+// written and the base's reference came back on load. Control::shortcut_context is
+// a built-in property of that type, so no script is needed.
+// -----------------------------------------------------------------------------
+
+static Ref<PackedScene> make_base_with_reference(const String &p_path, bool p_set_reference) {
+	Control *base = memnew(Control);
+	base->set_name("Base");
+	Node *target = memnew(Node);
+	target->set_name("Target");
+	base->add_child(target);
+	target->set_owner(base);
+	if (p_set_reference) {
+		base->set_shortcut_context(target);
+	}
+	Ref<PackedScene> base_ps = save_and_load(base, p_path);
+	memdelete(base);
+	return base_ps;
+}
+
+static Node *shortcut_context_at(Node *p_root, const NodePath &p_path) {
+	Control *control = Object::cast_to<Control>(p_root->get_node_or_null(p_path));
+	return control ? control->get_shortcut_context() : nullptr;
+}
+
+TEST_CASE("[PackedScene][Editor] Clearing a Node reference set by the base") {
+	SUBCASE("inherited scene") {
+		Ref<PackedScene> base_ps = make_base_with_reference(TestUtils::get_temp_path("clear_ref_inh_base.tscn"), true);
+		Node *derived = make_inherited(base_ps);
+		REQUIRE(shortcut_context_at(derived, NodePath(".")) != nullptr);
+		Object::cast_to<Control>(derived)->set_shortcut_context(nullptr);
+
+		Ref<SceneState> state = pack_scene(derived)->get_state();
+		CHECK_EQ(stored_properties(state, "Base"), "shortcut_context");
+		CHECK(stored_value(state, "Base", "shortcut_context").get_validated_object() == nullptr);
+
+		Node *reloaded = round_trip(derived, TestUtils::get_temp_path("clear_ref_inh_derived.tscn"));
+		REQUIRE(reloaded != nullptr);
+		CHECK(shortcut_context_at(reloaded, NodePath(".")) == nullptr);
+		memdelete(reloaded);
+		memdelete(derived);
+	}
+
+	SUBCASE("instance") {
+		Ref<PackedScene> base_ps = make_base_with_reference(TestUtils::get_temp_path("clear_ref_inst_base.tscn"), true);
+		Node *outer = memnew(Node);
+		outer->set_name("Outer");
+		Node *instance = make_instance(base_ps);
+		outer->add_child(instance);
+		instance->set_owner(outer);
+		Object::cast_to<Control>(instance)->set_shortcut_context(nullptr);
+
+		CHECK_EQ(stored_properties(pack_scene(outer)->get_state(), "Base"), "shortcut_context");
+
+		Node *reloaded = round_trip(outer, TestUtils::get_temp_path("clear_ref_inst_outer.tscn"));
+		REQUIRE(reloaded != nullptr);
+		REQUIRE(reloaded->get_node_or_null(NodePath("Base")) != nullptr);
+		CHECK(shortcut_context_at(reloaded, NodePath("Base")) == nullptr);
+		memdelete(reloaded);
+		memdelete(outer);
+	}
+
+	// The two cases that must not change: a reference kept as the base set it, and a
+	// null reference where the base has none. Neither may be written down.
+	SUBCASE("unchanged instance stores nothing") {
+		Ref<PackedScene> base_ps = make_base_with_reference(TestUtils::get_temp_path("clear_ref_keep_base.tscn"), true);
+		Node *outer = memnew(Node);
+		outer->set_name("Outer");
+		Node *instance = make_instance(base_ps);
+		outer->add_child(instance);
+		instance->set_owner(outer);
+
+		CHECK_EQ(stored_properties(pack_scene(outer)->get_state(), "Base"), "");
+
+		Node *reloaded = round_trip(outer, TestUtils::get_temp_path("clear_ref_keep_outer.tscn"));
+		REQUIRE(reloaded != nullptr);
+		CHECK(shortcut_context_at(reloaded, NodePath("Base")) == reloaded->get_node_or_null(NodePath("Base/Target")));
+		memdelete(reloaded);
+		memdelete(outer);
+	}
+
+	SUBCASE("null where the base has none stores nothing") {
+		Ref<PackedScene> base_ps = make_base_with_reference(TestUtils::get_temp_path("clear_ref_none_base.tscn"), false);
+		Node *outer = memnew(Node);
+		outer->set_name("Outer");
+		Node *instance = make_instance(base_ps);
+		outer->add_child(instance);
+		instance->set_owner(outer);
+
+		CHECK_EQ(stored_properties(pack_scene(outer)->get_state(), "Base"), "");
+		memdelete(outer);
 	}
 }
 
