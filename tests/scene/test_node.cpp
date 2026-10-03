@@ -534,6 +534,94 @@ TEST_CASE("[SceneTree][Node] Duplicating node with internal children") {
 	memdelete(dup);
 }
 
+class TestAlwaysDuplicateNode : public Node {
+	GDCLASS(TestAlwaysDuplicateNode, Node);
+
+protected:
+	void _get_property_list(List<PropertyInfo> *p_list) const {
+		const uint32_t usage = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_ALWAYS_DUPLICATE;
+		p_list->push_back(PropertyInfo(Variant::INT, "dup_int", PROPERTY_HINT_NONE, "", usage));
+		p_list->push_back(PropertyInfo(Variant::STRING, "dup_string", PROPERTY_HINT_NONE, "", usage));
+		p_list->push_back(PropertyInfo(Variant::OBJECT, "dup_resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource", usage));
+		p_list->push_back(PropertyInfo(Variant::INT, "plain_int", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT));
+	}
+
+	bool _set(const StringName &p_name, const Variant &p_value) {
+		if (p_name == "dup_int") {
+			dup_int = p_value;
+		} else if (p_name == "dup_string") {
+			dup_string = p_value;
+		} else if (p_name == "dup_resource") {
+			dup_resource = p_value;
+		} else if (p_name == "plain_int") {
+			plain_int = p_value;
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+	bool _get(const StringName &p_name, Variant &r_ret) const {
+		if (p_name == "dup_int") {
+			r_ret = dup_int;
+		} else if (p_name == "dup_string") {
+			r_ret = dup_string;
+		} else if (p_name == "dup_resource") {
+			r_ret = dup_resource;
+		} else if (p_name == "plain_int") {
+			r_ret = plain_int;
+		} else {
+			return false;
+		}
+		return true;
+	}
+
+public:
+	int dup_int = 0;
+	String dup_string;
+	Ref<Resource> dup_resource;
+	int plain_int = 0;
+};
+
+TEST_CASE("[SceneTree][Node] Duplicating node keeps PROPERTY_USAGE_ALWAYS_DUPLICATE properties") {
+	GDREGISTER_CLASS(TestAlwaysDuplicateNode);
+
+	Node *parent = memnew(Node);
+	TestAlwaysDuplicateNode *node = memnew(TestAlwaysDuplicateNode);
+	node->set_name("Child");
+	parent->add_child(node);
+	node->dup_int = 42;
+	node->dup_string = "hello";
+	node->dup_resource.instantiate();
+	node->dup_resource->set_name("payload");
+	node->plain_int = 7;
+
+	auto check_copy = [&](TestAlwaysDuplicateNode *p_copy) {
+		REQUIRE(p_copy != nullptr);
+		CHECK(p_copy != node);
+		CHECK_EQ(p_copy->plain_int, 7);
+		CHECK_EQ(p_copy->dup_int, 42);
+		CHECK_EQ(p_copy->dup_string, "hello");
+		REQUIRE(p_copy->dup_resource.is_valid());
+		CHECK(p_copy->dup_resource != node->dup_resource);
+		CHECK_EQ(p_copy->dup_resource->get_name(), "payload");
+	};
+
+	SUBCASE("Duplicating the node itself") {
+		Node *dup = node->duplicate();
+		check_copy(Object::cast_to<TestAlwaysDuplicateNode>(dup));
+		memdelete(dup);
+	}
+
+	SUBCASE("Duplicating the parent carries the properties of the child") {
+		Node *dup = parent->duplicate();
+		check_copy(Object::cast_to<TestAlwaysDuplicateNode>(dup->get_node_or_null(NodePath("Child"))));
+		memdelete(dup);
+	}
+
+	memdelete(parent);
+}
+
 TEST_CASE("[SceneTree][Node]Exported node checks") {
 	TestNode *node = memnew(TestNode);
 	SceneTree::get_singleton()->get_root()->add_child(node);
