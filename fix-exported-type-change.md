@@ -17,7 +17,7 @@ So 42 becomes 42.0. A conversion that loses information still takes the new defa
 
 ## Measured
 
-- [#46103](https://github.com/godotengine/godot/issues/46103): we set 42 on a single node in the editor and changed the type to float. On an unchanged build of the same Godot `master` commit, the value becomes 10.0. On this fork it becomes 42.0. We did not rebuild the inherited scene from the report.
+- [#46103](https://github.com/godotengine/godot/issues/46103), rebuilt as reported: two inherited scenes override `life_span = 42`, and an instance in a third scene sets 7. The script changes `:= 10` to `:= 10.0` while the scenes are open. On an unchanged build of the same Godot `master` commit, both show 10.0. A save then drops the 42 from the inherited scene and writes 10.0 over the 7. On this fork they stay 42.0 and 7.0, and save that way. A scene that is closed during the change is not affected on either build.
 
 ## Cost
 

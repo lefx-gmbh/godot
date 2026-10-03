@@ -10,7 +10,7 @@ AI substantially contributes to most fixes/changes in this fork. We use several 
 
 A person at LEFX chooses each problem, directs the work, draws up the concepts and makes the decisions. Afterwards we review the code and check the results in the editor.
 
-Every fix comes with tests, and every claim below has a measurement behind it. Read the code and the tests before you rely on a fix.
+Every fix comes with tests, or with steps to check it by hand where the code needs the running editor. Every claim below has a measurement behind it. Read the code and the tests before you rely on a fix.
 
 ## Not for upstream
 
@@ -43,6 +43,7 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 | [Inherited scenes keep up with their base scene](fix-inherited-scenes.md) | #41492, #43032, #57089, #28090, #94912 | `fix/stale-base-scene-state`, `fix/editor-reload-base-chain` |
 | [A cleared Node reference stays cleared](fix-clear-node-reference.md) | #92879 | `fix/clear-node-reference` |
 | [An exported value survives a change of its type](fix-exported-type-change.md) | #46103 | `fix/exported-type-change` |
+| [Node references survive Save Branch as Scene](fix-save-branch-references.md) | #84016 | `fix/save-branch-references` |
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
