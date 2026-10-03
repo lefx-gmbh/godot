@@ -48,6 +48,8 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 | [`.import` files of 3D scenes stay small](fix-import-slice-bloat.md) | #68936 | `fix/import-slice-bloat` |
 | [New resources get new IDs after a save](fix-unique-id-reseed.md) | #112332 | `fix/unique-id-reseed` |
 | [A post-import script's changes reach animations saved to file](fix-post-import-animation-save.md) | #85738 | `fix/post-import-animation-save` |
+| [Sub-resource IDs stay the same from the first save on](fix-sub-id-stable.md) | #120131 | `fix/sub-id-stable` |
+| [Pasted nodes keep their children inside an editable instance](fix-paste-editable-owner.md) | #115894 | `fix/paste-editable-owner` |
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
