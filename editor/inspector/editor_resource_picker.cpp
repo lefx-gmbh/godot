@@ -1387,6 +1387,7 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 		if (property_type == Variant::ARRAY) {
 			Array arr = property;
 			arr[meta[2]] = unique_resource;
+			parent->set(meta[1], arr); // Again, for a setter that keeps a copy of the container.
 			continue;
 		}
 
@@ -1407,6 +1408,7 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 		} else {
 			dict[meta[2]] = unique_resource;
 		}
+		parent->set(meta[1], dict); // Again, for a setter that keeps a copy of the container.
 	}
 	_resource_changed();
 }
