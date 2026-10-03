@@ -1676,7 +1676,11 @@ bool AnimationNodeStateMachine::_set(const StringName &p_name, const Variant &p_
 		if (what == "node") {
 			Ref<AnimationNode> anode = p_value;
 			if (anode.is_valid()) {
-				add_node(node_name, p_value);
+				if (states.has(node_name)) {
+					replace_node(node_name, anode); // E.g. Make Unique (Recursive) puts a copy back.
+				} else {
+					add_node(node_name, p_value);
+				}
 			}
 			return true;
 		}

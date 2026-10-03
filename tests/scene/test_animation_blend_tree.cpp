@@ -33,6 +33,7 @@
 TEST_FORCE_LINK(test_animation_blend_tree)
 
 #include "scene/animation/animation_blend_tree.h"
+#include "scene/animation/animation_node_state_machine.h"
 
 namespace TestAnimationBlendTree {
 
@@ -79,6 +80,58 @@ TEST_CASE("[SceneTree][AnimationBlendTree] Create AnimationBlendTree and add Ani
 
 	connections = blend_tree->get_node_connection_array("output");
 	CHECK_EQ(connections->operator[](0), StringName());
+}
+
+TEST_CASE("[SceneTree][AnimationBlendTree] Replace existing child node through storage property") {
+	SUBCASE("AnimationNodeBlendTree keeps position and connections") {
+		Ref<AnimationNodeBlendTree> blend_tree;
+		blend_tree.instantiate();
+		Ref<AnimationNodeAnimation> anim_node;
+		anim_node.instantiate();
+		blend_tree->add_node("A", anim_node, Vector2(10, 20));
+		blend_tree->connect_node("output", 0, "A");
+
+		Ref<AnimationNodeAnimation> copy = anim_node->duplicate();
+		bool valid = false;
+		blend_tree->set("nodes/A/node", copy, &valid);
+		CHECK(valid);
+		CHECK_EQ(blend_tree->get_node("A"), copy);
+		CHECK_EQ(blend_tree->get_node_position("A"), Vector2(10, 20));
+		const LocalVector<StringName> *connections = blend_tree->get_node_connection_array("output");
+		REQUIRE_EQ(connections->size(), 1);
+		CHECK_EQ(connections->operator[](0), StringName("A"));
+
+		// The output node must not be replaceable.
+		Ref<AnimationNode> output = blend_tree->get_node("output");
+		Ref<AnimationNodeOutput> other_output;
+		other_output.instantiate();
+		ERR_PRINT_OFF;
+		blend_tree->set("nodes/output/node", other_output);
+		ERR_PRINT_ON;
+		CHECK_EQ(blend_tree->get_node("output"), output);
+	}
+
+	SUBCASE("AnimationNodeStateMachine keeps position and transitions") {
+		Ref<AnimationNodeStateMachine> state_machine;
+		state_machine.instantiate();
+		Ref<AnimationNodeAnimation> state_s;
+		state_s.instantiate();
+		Ref<AnimationNodeAnimation> state_t;
+		state_t.instantiate();
+		state_machine->add_node("S", state_s, Vector2(30, 40));
+		state_machine->add_node("T", state_t, Vector2(50, 60));
+		Ref<AnimationNodeStateMachineTransition> transition;
+		transition.instantiate();
+		state_machine->add_transition("S", "T", transition);
+
+		Ref<AnimationNodeAnimation> copy = state_s->duplicate();
+		bool valid = false;
+		state_machine->set("states/S/node", copy, &valid);
+		CHECK(valid);
+		CHECK_EQ(state_machine->get_node("S"), copy);
+		CHECK_EQ(state_machine->get_node_position("S"), Vector2(30, 40));
+		CHECK(state_machine->has_transition("S", "T"));
+	}
 }
 
 } // namespace TestAnimationBlendTree
