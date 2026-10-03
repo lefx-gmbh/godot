@@ -55,10 +55,12 @@ class SceneState : public RefCounted {
 	// base resource as the user edits it. A repack would then compare against
 	// the new base.
 	Ref<SceneState> base_scene_state;
+#ifdef TOOLS_ENABLED
 	// Copy of this state carrying a newer base snapshot, handed to nodes
-	// instantiated after the base scene was saved. See
+	// instantiated after the base scene was saved. Editor only. See
 	// _get_state_for_instantiation().
 	mutable Ref<SceneState> rebased_state;
+#endif
 
 	enum {
 		NO_PARENT_SAVED = 0x7FFFFFFF,

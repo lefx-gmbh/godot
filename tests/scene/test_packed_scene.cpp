@@ -900,6 +900,27 @@ TEST_CASE("[PackedScene][Editor] Stale base state: lifecycle and depth") {
 
 		memdelete(chain.outer);
 	}
+
+	// After a base save, a state gives new trees a cached copy of itself.
+	// Clearing the state must release that copy too.
+	SUBCASE("clearing a state releases its cached copy") {
+		Ref<PackedScene> base_ps = make_base(TestUtils::get_temp_path("stale_cache_base.tscn"));
+		Node *derived = make_inherited(base_ps);
+		Ref<PackedScene> derived_ps = save_and_load(derived, TestUtils::get_temp_path("stale_cache_derived.tscn"));
+		memdelete(derived);
+
+		edit_and_save_base(base_ps, BASE_AFTER);
+
+		Node *instance = derived_ps->instantiate(PackedScene::GEN_EDIT_STATE_INSTANCE);
+		REQUIRE(instance != nullptr);
+		// The tree must hold the copy, not the state itself, or there is no cache to test.
+		REQUIRE(instance->get_scene_instance_state() != derived_ps->get_state());
+		const ObjectID cached_id = instance->get_scene_instance_state()->get_instance_id();
+		memdelete(instance);
+
+		derived_ps->clear();
+		CHECK(ObjectDB::get_instance(cached_id) == nullptr);
+	}
 }
 
 // Case 5. Repetition over time. Case 4 saves the base twice and looks once. A fix can
