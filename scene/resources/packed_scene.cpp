@@ -1450,6 +1450,9 @@ void SceneState::clear() {
 	id_paths.clear();
 	base_scene_idx = -1;
 	base_scene_state.unref();
+#ifdef TOOLS_ENABLED
+	rebased_state.unref();
+#endif
 }
 
 Error SceneState::copy_from(const Ref<SceneState> &p_scene_state) {
@@ -1522,6 +1525,7 @@ Ref<SceneState> SceneState::get_base_scene_state() const {
 Ref<SceneState> SceneState::_get_state_for_instantiation() const {
 	Ref<SceneState> self = Ref<SceneState>(const_cast<SceneState *>(this));
 
+#ifdef TOOLS_ENABLED
 	if (base_scene_idx < 0 || base_scene_idx >= variants.size()) {
 		return self;
 	}
@@ -1544,13 +1548,15 @@ Ref<SceneState> SceneState::_get_state_for_instantiation() const {
 		rebased->base_scene_state = base_state;
 		// copy_from() leaves these out, and the reload check reads both of them.
 		rebased->path = path;
-#ifdef TOOLS_ENABLED
 		rebased->last_modified_time = last_modified_time;
-#endif
 		rebased_state = rebased;
 	}
 
 	return rebased_state;
+#else
+	// Builds without the editor refuse edit state, so no tree needs a newer snapshot.
+	return self;
+#endif
 }
 
 int SceneState::find_node_by_path(const NodePath &p_node) const {
