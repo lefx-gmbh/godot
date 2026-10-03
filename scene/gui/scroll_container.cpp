@@ -194,9 +194,11 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 	bool h_scroll_enabled = horizontal_scroll_mode != SCROLL_MODE_DISABLED;
 	bool v_scroll_enabled = vertical_scroll_mode != SCROLL_MODE_DISABLED;
 
+	int event_device_id = p_gui_input->get_device();
+
 	Ref<InputEventMouseButton> mb = p_gui_input;
 
-	if (mb.is_valid()) {
+	if (mb.is_valid() && event_device_id != InputEvent::DEVICE_ID_EMULATION) {
 		if (mb->is_pressed()) {
 			bool scroll_value_modified = false;
 			bool swap_axes = scroll_horizontal_by_default != mb->is_shift_pressed();
@@ -248,17 +250,12 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 				return;
 			}
 		}
+		return;
+	}
 
-		bool is_touchscreen_available = DisplayServer::get_singleton()->is_touchscreen_available();
-		if (!is_touchscreen_available) {
-			return;
-		}
-
-		if (mb->get_button_index() != MouseButton::LEFT) {
-			return;
-		}
-
-		if (mb->is_pressed()) {
+	Ref<InputEventScreenTouch> touch = p_gui_input;
+	if (touch.is_valid() && event_device_id != InputEvent::DEVICE_ID_EMULATION) {
+		if (touch->is_pressed()) {
 			if (drag_touching) {
 				_cancel_drag();
 			}
@@ -276,7 +273,7 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 
 		} else {
 			if (drag_touching) {
-				if (drag_speed == Vector2()) {
+				if (touch->is_canceled() || drag_speed == Vector2()) {
 					_cancel_drag();
 				} else {
 					drag_touching_deaccel = true;
@@ -286,11 +283,11 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 		return;
 	}
 
-	Ref<InputEventMouseMotion> mm = p_gui_input;
+	Ref<InputEventScreenDrag> drag = p_gui_input;
 
-	if (mm.is_valid()) {
+	if (drag.is_valid() && event_device_id != InputEvent::DEVICE_ID_EMULATION) {
 		if (drag_touching && !drag_touching_deaccel) {
-			Vector2 motion = mm->get_relative();
+			Vector2 motion = drag->get_relative();
 			drag_accum -= motion;
 
 			if (beyond_deadzone || (h_scroll_enabled && Math::abs(drag_accum.x) > deadzone) || (v_scroll_enabled && Math::abs(drag_accum.y) > deadzone)) {
@@ -349,18 +346,32 @@ void ScrollContainer::_update_scrollbar_position() {
 	Size2 hmin = h_scroll->is_visible() ? h_scroll->get_bound_minimum_size() : Size2();
 	Size2 vmin = v_scroll->is_visible() ? v_scroll->get_bound_minimum_size() : Size2();
 
-	int lmar = is_layout_rtl() ? margins.size.x : margins.position.x;
-	int rmar = is_layout_rtl() ? margins.position.x : margins.size.x;
+	int left_margin = 0;
+	if (theme_cache.scrollbar_margin_left < 0) {
+		left_margin = is_layout_rtl() ? margins.size.x : margins.position.x;
+	} else {
+		left_margin = theme_cache.scrollbar_margin_left;
+	}
 
-	h_scroll->set_anchor_and_offset(SIDE_LEFT, ANCHOR_BEGIN, lmar);
-	h_scroll->set_anchor_and_offset(SIDE_RIGHT, ANCHOR_END, -rmar - vmin.width);
-	h_scroll->set_anchor_and_offset(SIDE_TOP, ANCHOR_END, -hmin.height - margins.size.y);
-	h_scroll->set_anchor_and_offset(SIDE_BOTTOM, ANCHOR_END, -margins.size.y);
+	int right_margin = 0;
+	if (theme_cache.scrollbar_margin_right < 0) {
+		right_margin = is_layout_rtl() ? margins.position.x : margins.size.x;
+	} else {
+		right_margin = theme_cache.scrollbar_margin_right;
+	}
 
-	v_scroll->set_anchor_and_offset(SIDE_LEFT, ANCHOR_END, -vmin.width - rmar);
-	v_scroll->set_anchor_and_offset(SIDE_RIGHT, ANCHOR_END, -rmar);
-	v_scroll->set_anchor_and_offset(SIDE_TOP, ANCHOR_BEGIN, margins.position.y);
-	v_scroll->set_anchor_and_offset(SIDE_BOTTOM, ANCHOR_END, -hmin.height - margins.size.y);
+	int top_margin = theme_cache.scrollbar_margin_top < 0 ? margins.position.y : theme_cache.scrollbar_margin_top;
+	int bottom_margin = theme_cache.scrollbar_margin_bottom < 0 ? theme_cache.panel_style->get_margin(SIDE_BOTTOM) : theme_cache.scrollbar_margin_bottom;
+
+	h_scroll->set_anchor_and_offset(SIDE_LEFT, ANCHOR_BEGIN, left_margin);
+	h_scroll->set_anchor_and_offset(SIDE_RIGHT, ANCHOR_END, -right_margin - vmin.width);
+	h_scroll->set_anchor_and_offset(SIDE_TOP, ANCHOR_END, -hmin.height - bottom_margin);
+	h_scroll->set_anchor_and_offset(SIDE_BOTTOM, ANCHOR_END, -bottom_margin);
+
+	v_scroll->set_anchor_and_offset(SIDE_LEFT, ANCHOR_END, -vmin.width - right_margin);
+	v_scroll->set_anchor_and_offset(SIDE_RIGHT, ANCHOR_END, -right_margin);
+	v_scroll->set_anchor_and_offset(SIDE_TOP, ANCHOR_BEGIN, top_margin);
+	v_scroll->set_anchor_and_offset(SIDE_BOTTOM, ANCHOR_END, -hmin.height - bottom_margin);
 
 	_updating_scrollbars = false;
 }
@@ -479,17 +490,29 @@ void ScrollContainer::_reposition_children() {
 	size -= margins.position + margins.size;
 	Point2 ofs = margins.position;
 
-	bool rtl = is_layout_rtl();
-	bool reserve_vscroll = _is_v_scroll_visible() || vertical_scroll_mode == SCROLL_MODE_RESERVE;
-
 	if (_is_h_scroll_visible() || horizontal_scroll_mode == SCROLL_MODE_RESERVE) {
-		size.y -= h_scroll->get_minimum_size().y + theme_cache.scrollbar_v_separation;
+		int height = h_scroll->get_minimum_size().y + theme_cache.scrollbar_v_separation;
+		if (theme_cache.scrollbar_margin_bottom >= 0) {
+			int scroll_margin = theme_cache.scrollbar_margin_bottom + height;
+			if (scroll_margin > margins.size.height) {
+				height = scroll_margin - margins.size.height;
+			}
+		}
+
+		size.height -= height;
 	}
 
-	if (reserve_vscroll) {
-		int width = v_scroll->get_minimum_size().x + theme_cache.scrollbar_h_separation;
-		size.x -= width;
-		if (rtl) {
+	if (_is_v_scroll_visible() || vertical_scroll_mode == SCROLL_MODE_RESERVE) {
+		int width = v_scroll->get_minimum_size().width + theme_cache.scrollbar_h_separation;
+		if (theme_cache.scrollbar_margin_right >= 0) {
+			int scroll_margin = theme_cache.scrollbar_margin_right + width;
+			if (scroll_margin > margins.size.width) {
+				width = scroll_margin - margins.size.width;
+			}
+		}
+
+		size.width -= width;
+		if (is_layout_rtl()) {
 			ofs.x += width;
 		}
 	}
@@ -1062,6 +1085,10 @@ void ScrollContainer::_bind_methods() {
 	BIND_ENUM_CONSTANT(SCROLL_HINT_MODE_LEFT);
 	BIND_ENUM_CONSTANT(SCROLL_HINT_MODE_RIGHT);
 
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, ScrollContainer, scrollbar_margin_left);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, ScrollContainer, scrollbar_margin_top);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, ScrollContainer, scrollbar_margin_right);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, ScrollContainer, scrollbar_margin_bottom);
 	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, ScrollContainer, scrollbar_h_separation);
 	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, ScrollContainer, scrollbar_v_separation);
 
