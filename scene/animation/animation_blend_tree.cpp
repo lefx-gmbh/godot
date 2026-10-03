@@ -1789,7 +1789,17 @@ bool AnimationNodeBlendTree::_set(const StringName &p_name, const Variant &p_val
 
 		if (what == "node") {
 			Ref<AnimationNode> anode = p_value;
-			if (anode.is_valid()) {
+			Node *existing = node_name == SceneStringName(output) ? nullptr : nodes.getptr(node_name);
+			if (anode.is_valid() && existing) {
+				// Replace in place, e.g. when Make Unique (Recursive) puts a copy back, so position and connections stay.
+				_remove_node(existing->node);
+				existing->node->disconnect_changed(callable_mp(this, &AnimationNodeBlendTree::_child_node_changed));
+				existing->node = anode;
+				_add_node(anode);
+				anode->connect_changed(callable_mp(this, &AnimationNodeBlendTree::_child_node_changed).bind(node_name), CONNECT_REFERENCE_COUNTED);
+				emit_changed();
+				emit_signal(SNAME("tree_changed"));
+			} else if (anode.is_valid()) {
 				add_node(node_name, p_value);
 			}
 			return true;
