@@ -3177,7 +3177,8 @@ void Node::_duplicate_signals(const Node *p_original, Node *p_copy) const {
 						if (E.callable.get_bound_arguments_count() > 0) {
 							copy_callable = copy_callable.bindv(E.callable.get_bound_arguments());
 						}
-						copy->connect(E.signal.get_name(), copy_callable, E.flags);
+						// The copy is a new node, so none of its connections come from a base scene.
+						copy->connect(E.signal.get_name(), copy_callable, E.flags & ~CONNECT_INHERITED);
 					}
 				}
 			}

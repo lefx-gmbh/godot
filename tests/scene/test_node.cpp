@@ -613,6 +613,50 @@ TEST_CASE("[SceneTree][Node] Duplicating node keeps PROPERTY_USAGE_ALWAYS_DUPLIC
 	memdelete(parent);
 }
 
+TEST_CASE("[SceneTree][Node] Duplicating node clears CONNECT_INHERITED on copied connections") {
+	Node *root = memnew(Node);
+	Node *a = memnew(Node);
+	Node *b = memnew(Node);
+	a->set_name("A");
+	b->set_name("B");
+	root->add_child(a);
+	root->add_child(b);
+	a->connect(SNAME("renamed"), Callable(b, "queue_free"), Object::CONNECT_PERSIST | Object::CONNECT_INHERITED);
+
+	// Returns the flags of the "renamed" connection from p_source to p_target, or -1 if none.
+	auto flags_of = [](Node *p_source, Node *p_target) -> int64_t {
+		List<Object::Connection> conns;
+		p_source->get_signal_connection_list(SNAME("renamed"), &conns);
+		for (const Object::Connection &c : conns) {
+			if (c.callable.get_object() == p_target && c.callable.get_method() == StringName("queue_free")) {
+				return c.flags;
+			}
+		}
+		return -1;
+	};
+
+	SUBCASE("Duplicating the root remaps the connection without CONNECT_INHERITED") {
+		Node *dup = root->duplicate();
+		int64_t flags = flags_of(dup->get_node(NodePath("A")), dup->get_node(NodePath("B")));
+		REQUIRE(flags != -1);
+		CHECK((flags & Object::CONNECT_PERSIST) != 0);
+		CHECK((flags & Object::CONNECT_INHERITED) == 0);
+		memdelete(dup);
+	}
+
+	SUBCASE("Duplicating A alone keeps the outside target without CONNECT_INHERITED") {
+		Node *dup = a->duplicate();
+		int64_t flags = flags_of(dup, b);
+		REQUIRE(flags != -1);
+		CHECK((flags & Object::CONNECT_PERSIST) != 0);
+		CHECK((flags & Object::CONNECT_INHERITED) == 0);
+		memdelete(dup);
+	}
+
+	CHECK_EQ(flags_of(a, b), int64_t(Object::CONNECT_PERSIST | Object::CONNECT_INHERITED));
+	memdelete(root);
+}
+
 TEST_CASE("[SceneTree][Node]Exported node checks") {
 	TestNode *node = memnew(TestNode);
 	SceneTree::get_singleton()->get_root()->add_child(node);
