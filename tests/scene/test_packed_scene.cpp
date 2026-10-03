@@ -287,6 +287,8 @@ TEST_CASE("[PackedScene] Recreate State") {
 	memdelete(scene);
 }
 
+#ifdef TOOLS_ENABLED
+
 // -----------------------------------------------------------------------------
 // A scene that is built on another scene must keep following that base until the
 // user genuinely overrides something. Repacking one used to compare it against a
@@ -296,6 +298,9 @@ TEST_CASE("[PackedScene] Recreate State") {
 // for tagged cases (tests/test_main.cpp:242), and without it SceneState::pack() skips
 // building the node path cache (packed_scene.cpp:1491). Untagged, these cases print
 // node cache errors and one of them fails for that reason instead of the real one.
+//
+// The whole section needs TOOLS_ENABLED. It instantiates with GEN_EDIT_STATE_*, which a
+// template build refuses and answers with a null node.
 //
 // Vocabulary used below, one word per thing:
 //   base    -- the scene at the bottom, the one being edited and saved.
@@ -1017,5 +1022,7 @@ TEST_CASE("[PackedScene][Editor] Stale base state: repeated base saves") {
 		}
 	}
 }
+
+#endif // TOOLS_ENABLED
 
 } // namespace TestPackedScene
