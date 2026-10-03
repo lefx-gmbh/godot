@@ -568,6 +568,19 @@ void SceneTreeDock::_replace_with_branch_scene(const String &p_file, Node *p_bas
 	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(TTR("Replace with Branch Scene"));
 
+	// Point references to the branch at the new nodes, as Change Type does.
+	HashMap<Node *, Node *> replacements;
+	replacements.insert(p_base, instantiated_scene);
+	const TypedArray<Node> branch_nodes = p_base->find_children("*", "", true, false);
+	for (int i = 0; i < branch_nodes.size(); i++) {
+		Node *old_node = Object::cast_to<Node>(branch_nodes[i]);
+		Node *new_node = instantiated_scene->get_node_or_null(p_base->get_path_to(old_node));
+		if (new_node) {
+			replacements.insert(old_node, new_node);
+		}
+	}
+	perform_node_replace(nullptr, replacements);
+
 	Node *parent = p_base->get_parent();
 	int pos = p_base->get_index(false);
 	undo_redo->add_do_method(parent, "remove_child", p_base);
@@ -3572,6 +3585,12 @@ void SceneTreeDock::_replace_node(Node *p_node, Node *p_by_node, bool p_keep_pro
 }
 
 void SceneTreeDock::perform_node_replace(Node *p_base, Node *p_node, Node *p_by_node) {
+	HashMap<Node *, Node *> replacements;
+	replacements.insert(p_node, p_by_node);
+	perform_node_replace(p_base, replacements);
+}
+
+void SceneTreeDock::perform_node_replace(Node *p_base, const HashMap<Node *, Node *> &p_replacements) {
 	if (!p_base) {
 		p_base = edited_scene;
 	}
@@ -3593,7 +3612,7 @@ void SceneTreeDock::perform_node_replace(Node *p_base, Node *p_node, Node *p_by_
 		Variant updated_variant = old_variant;
 		String warn_message;
 
-		if (_check_node_recursive(updated_variant, p_node, p_by_node, E.hint_string, warn_message)) {
+		if (_check_node_recursive(updated_variant, p_replacements, E.hint_string, warn_message)) {
 			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 			undo_redo->add_do_property(p_base, propertyname, updated_variant);
 			undo_redo->add_undo_property(p_base, propertyname, old_variant);
@@ -3605,19 +3624,20 @@ void SceneTreeDock::perform_node_replace(Node *p_base, Node *p_node, Node *p_by_
 	}
 
 	for (int i = 0; i < p_base->get_child_count(); i++) {
-		perform_node_replace(p_base->get_child(i), p_node, p_by_node);
+		perform_node_replace(p_base->get_child(i), p_replacements);
 	}
 }
 
-bool SceneTreeDock::_check_node_recursive(Variant &r_variant, Node *p_node, Node *p_by_node, const String type_hint, String &r_warn_message) {
+bool SceneTreeDock::_check_node_recursive(Variant &r_variant, const HashMap<Node *, Node *> &p_replacements, const String type_hint, String &r_warn_message) {
 	switch (r_variant.get_type()) {
 		case Variant::OBJECT: {
-			if (p_node == r_variant) {
-				if (p_by_node->is_class(type_hint) || EditorNode::get_singleton()->is_object_of_custom_type(p_by_node, type_hint)) {
-					r_variant = p_by_node;
+			Node *const *by_node = p_replacements.getptr(Object::cast_to<Node>(r_variant.get_validated_object()));
+			if (by_node) {
+				if ((*by_node)->is_class(type_hint) || EditorNode::get_singleton()->is_object_of_custom_type(*by_node, type_hint)) {
+					r_variant = *by_node;
 				} else {
 					r_variant = memnew(Object);
-					r_warn_message = vformat("The node's new type is incompatible with an exported variable (expected %s, but type is %s).", type_hint, p_by_node->get_class());
+					r_warn_message = vformat("The node's new type is incompatible with an exported variable (expected %s, but type is %s).", type_hint, (*by_node)->get_class());
 				}
 				return true;
 			}
@@ -3628,7 +3648,7 @@ bool SceneTreeDock::_check_node_recursive(Variant &r_variant, Node *p_node, Node
 			bool updated = false;
 			for (int i = 0; i < a.size(); i++) {
 				Variant value = a[i];
-				if (_check_node_recursive(value, p_node, p_by_node, type_hint.get_slicec(':', 1), r_warn_message)) {
+				if (_check_node_recursive(value, p_replacements, type_hint.get_slicec(':', 1), r_warn_message)) {
 					if (!updated) {
 						a = a.duplicate(); // Need to duplicate for undo-redo to work.
 						updated = true;
