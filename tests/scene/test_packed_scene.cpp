@@ -1272,6 +1272,65 @@ TEST_CASE("[PackedScene][Editor] Clearing a Node reference set by the base") {
 	}
 }
 
+// A node that the edited scene adds below an instanced sub-scene with
+// Editable Children must keep its place among the instance's own children.
+TEST_CASE("[PackedScene][Editor] Added child keeps its order among instance children") {
+	auto child_names = [](Node *p_parent) {
+		Vector<String> names;
+		for (int i = 0; i < p_parent->get_child_count(); i++) {
+			names.push_back(p_parent->get_child(i)->get_name());
+		}
+		return String(",").join(names);
+	};
+	auto add_owned = [](Node *p_parent, const String &p_name, Node *p_owner) {
+		Node *node = memnew(Node);
+		node->set_name(p_name);
+		p_parent->add_child(node);
+		node->set_owner(p_owner);
+		return node;
+	};
+
+	Node *main = memnew(Node);
+	main->set_name("Main");
+	Node *parent = nullptr;
+
+	SUBCASE("child of an instance with editable children") {
+		Node *inner = memnew(Node);
+		inner->set_name("Inner");
+		add_owned(inner, "A", inner);
+		add_owned(inner, "B", inner);
+		add_owned(inner, "C", inner);
+		Ref<PackedScene> inner_ps = save_and_load(inner, TestUtils::get_temp_path("child_order_inner.tscn"));
+		memdelete(inner);
+
+		parent = make_instance(inner_ps);
+		parent->set_name("Inst");
+		main->add_child(parent);
+		parent->set_owner(main);
+		main->set_editable_instance(parent, true);
+	}
+
+	SUBCASE("child of a plain node (control)") {
+		parent = add_owned(main, "Inst", main);
+		add_owned(parent, "A", main);
+		add_owned(parent, "B", main);
+		add_owned(parent, "C", main);
+	}
+
+	Node *x = add_owned(parent, "X", main);
+	parent->move_child(x, 1);
+	REQUIRE_EQ(child_names(parent), "A,X,B,C");
+
+	Node *result = pack_scene(main)->instantiate();
+	REQUIRE(result != nullptr);
+	Node *result_parent = result->get_node_or_null(NodePath("Inst"));
+	REQUIRE(result_parent != nullptr);
+	CHECK_EQ(child_names(result_parent), "A,X,B,C");
+
+	memdelete(result);
+	memdelete(main);
+}
+
 #endif // TOOLS_ENABLED
 
 } // namespace TestPackedScene
