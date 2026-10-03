@@ -2017,6 +2017,9 @@ Error ResourceFormatSaverTextInstance::save(const String &p_path, const Ref<Reso
 		}
 	}
 
+	// Seed again, so sub-resource IDs do not depend on how many external resource IDs this save created.
+	Resource::seed_scene_unique_id(p_path.hash());
+
 	bool first_meta = true;
 	bool has_nested_scene = false;
 	for (List<Ref<Resource>>::Element *E = saved_resources.front(); E; E = E->next()) {

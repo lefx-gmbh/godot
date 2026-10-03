@@ -32,6 +32,7 @@
 
 TEST_FORCE_LINK(test_resource)
 
+#include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/io/resource.h"
 #include "core/io/resource_loader.h"
@@ -660,6 +661,40 @@ TEST_CASE("[Resource] Scene unique IDs and saving") {
 		const String second = FileAccess::get_file_as_string(path);
 
 		CHECK_MESSAGE(first == second, "Re-saving identical content to the same path must write identical sub-resource IDs.");
+	}
+
+	SUBCASE("First save and later saves write the same sub-resource ID with an external resource present") {
+		const auto sub_id = [](const String &p_path) {
+			const String text = FileAccess::get_file_as_string(p_path);
+			const int line = text.find("[sub_resource");
+			const int start = text.find("id=\"", line) + 4;
+			return (line < 0 || start < 4) ? String() : text.substr(start, text.find("\"", start) - start);
+		};
+		const String ext_path = TestUtils::get_temp_path("unique_id_ext.tres");
+		const String main_path = TestUtils::get_temp_path("unique_id_ext_main.tres");
+		DirAccess::remove_absolute(main_path);
+
+		Ref<Resource> ext = memnew(Resource);
+		ext->set_name("ext");
+		REQUIRE(ResourceSaver::save(ext, ext_path) == OK);
+		ext->set_path(ext_path);
+
+		Ref<Resource> resource = memnew(Resource);
+		resource->set_meta("ext", ext);
+		Ref<Resource> child = memnew(Resource);
+		resource->set_meta("child", child);
+		REQUIRE(child->get_scene_unique_id().is_empty());
+		REQUIRE(ResourceSaver::save(resource, main_path) == OK);
+		REQUIRE(FileAccess::get_file_as_string(main_path).contains("[ext_resource"));
+		const String first = sub_id(main_path);
+		REQUIRE_FALSE(first.is_empty());
+
+		Ref<Resource> new_child = memnew(Resource);
+		resource->set_meta("child", new_child);
+		REQUIRE(ResourceSaver::save(resource, main_path) == OK);
+		const String second = sub_id(main_path);
+
+		CHECK_MESSAGE(first == second, "The first save and a later save to the same path must write the same sub-resource ID.");
 	}
 }
 
