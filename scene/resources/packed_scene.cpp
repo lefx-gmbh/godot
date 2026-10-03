@@ -960,7 +960,12 @@ Error SceneState::_parse_node(Node *p_owner, Node *p_node, int p_parent_idx, Has
 				use_deferred_node_path_bit = true;
 			}
 			if (value.get_type() != Variant::NODE_PATH) {
-				continue; //was never set, ignore.
+				if (states_stack.is_empty()) {
+					continue; //was never set, ignore.
+				}
+				// Null in an instance or inherited scene. Save it as a plain null if it clears
+				// a reference set by an ancestor scene; the default check below decides.
+				use_deferred_node_path_bit = false;
 			}
 		} else if (E.type == Variant::OBJECT && missing_resource_properties.has(E.name)) {
 			// Was this missing resource overridden? If so do not save the old value.
