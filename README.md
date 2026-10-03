@@ -50,6 +50,8 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 | [A post-import script's changes reach animations saved to file](fix-post-import-animation-save.md) | #85738 | `fix/post-import-animation-save` |
 | [Sub-resource IDs stay the same from the first save on](fix-sub-id-stable.md) | #120131 | `fix/sub-id-stable` |
 | [Pasted nodes keep their children inside an editable instance](fix-paste-editable-owner.md) | #115894 | `fix/paste-editable-owner` |
+| [A duplicated node's connections are not locked](fix-duplicate-inherited-flag.md) | #117415 | `fix/duplicate-inherited-flag` |
+| [Make Unique (Recursive) makes nested resources unique](fix-make-unique-recursive.md) | #94646, #111130 | `fix/make-unique-recursive` |
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
