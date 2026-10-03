@@ -1995,13 +1995,8 @@ Ref<Animation> ResourceImporterScene::_save_animation_to_file(Ref<Animation> ani
 		}
 	}
 	anim->set_path(res_path, true); // Set path to save externally.
-	Error err = ResourceSaver::save(anim, res_path, ResourceSaver::FLAG_CHANGE_PATH);
-
-	ERR_FAIL_COND_V_MSG(err != OK, anim, "Saving of animation failed: " + res_path);
-	if (p_save_to_path.begins_with("uid://")) {
-		// slow
-		ResourceSaver::set_uid(res_path, ResourceUID::get_singleton()->text_to_id(p_save_to_path));
-	}
+	// Saved by import() after the post-import script and plugins, so their changes reach the file.
+	pending_animation_saves.push_back(Pair<Ref<Animation>, String>(anim, p_save_to_path));
 	return anim;
 }
 
@@ -3269,6 +3264,7 @@ Error ResourceImporterScene::import(ResourceUID::ID p_source_id, const String &p
 
 	EditorProgress progress("import", TTR("Import Scene"), 104);
 	progress.step(TTR("Importing Scene..."), 0);
+	pending_animation_saves.clear(); // An import that failed half way leaves its list.
 
 	for (Ref<EditorSceneFormatImporter> importer_elem : scene_importers) {
 		List<String> extensions;
@@ -3508,6 +3504,16 @@ Error ResourceImporterScene::import(ResourceUID::ID p_source_id, const String &p
 	for (int i = 0; i < post_importer_plugins.size(); i++) {
 		post_importer_plugins.write[i]->post_process(scene, p_options);
 	}
+
+	for (const Pair<Ref<Animation>, String> &E : pending_animation_saves) {
+		const String res_path = E.first->get_path();
+		ERR_CONTINUE_MSG(ResourceSaver::save(E.first, res_path, ResourceSaver::FLAG_CHANGE_PATH) != OK, "Saving of animation failed: " + res_path);
+		if (E.second.begins_with("uid://")) {
+			// slow
+			ResourceSaver::set_uid(res_path, ResourceUID::get_singleton()->text_to_id(E.second));
+		}
+	}
+	pending_animation_saves.clear();
 
 	progress.step(TTR("Saving..."), 104);
 
