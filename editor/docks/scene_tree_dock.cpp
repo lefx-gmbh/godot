@@ -889,7 +889,10 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 				Ref<Script> existing = n->get_script();
 				Ref<Script> empty = EditorNode::get_singleton()->get_object_custom_type_base(n);
 				if (existing != empty) {
+					// The custom type's base script keeps the values it shares with the detached one, as in _script_created().
+					undo_redo->add_do_method(InspectorDock::get_singleton(), "store_script_properties", n);
 					undo_redo->add_do_method(n, "set_script", empty);
+					undo_redo->add_do_method(InspectorDock::get_singleton(), "apply_script_properties", n);
 					undo_redo->add_undo_method(n, "set_script", existing);
 
 					List<PropertyInfo> properties;
