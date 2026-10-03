@@ -47,6 +47,7 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 | [Duplicating a node keeps every property marked ALWAYS_DUPLICATE](fix-duplicate-always-flag.md) | #82819 | `fix/duplicate-always-flag` |
 | [`.import` files of 3D scenes stay small](fix-import-slice-bloat.md) | #68936 | `fix/import-slice-bloat` |
 | [New resources get new IDs after a save](fix-unique-id-reseed.md) | #112332 | `fix/unique-id-reseed` |
+| [A post-import script's changes reach animations saved to file](fix-post-import-animation-save.md) | #85738 | `fix/post-import-animation-save` |
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
