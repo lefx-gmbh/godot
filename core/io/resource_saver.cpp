@@ -127,6 +127,9 @@ Error ResourceSaver::save(RequiredParam<Resource> rp_resource, const String &p_p
 		}
 
 		err = saver[i]->save(p_resource, path, p_flags);
+		// The saver seeds scene unique IDs from the path, so a file gets the same IDs each time.
+		// Unseed after it, or every save to that path would repeat the next ID made elsewhere.
+		Resource::seed_scene_unique_id(0);
 
 		if (err == OK) {
 #ifdef TOOLS_ENABLED

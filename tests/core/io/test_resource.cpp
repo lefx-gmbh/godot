@@ -32,6 +32,7 @@
 
 TEST_FORCE_LINK(test_resource)
 
+#include "core/io/file_access.h"
 #include "core/io/resource.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
@@ -626,6 +627,42 @@ TEST_CASE("[Resource] Breaking circular references on save") {
 
 	// Break circular reference to avoid memory leak
 	resource_c->remove_meta("next");
+}
+
+TEST_CASE("[Resource] Scene unique IDs and saving") {
+	SUBCASE("generate_scene_unique_id() stays fresh after saving to a fixed path") {
+		Ref<Resource> resource = memnew(Resource);
+		for (const String &file : { String("unique_id.tres"), String("unique_id.res") }) {
+			INFO(file);
+			const String path = TestUtils::get_temp_path(file);
+
+			ResourceSaver::save(resource, path);
+			const String a = Resource::generate_scene_unique_id();
+			ResourceSaver::save(resource, path);
+			const String b = Resource::generate_scene_unique_id();
+
+			CHECK_MESSAGE(a != b, "Saving to the same path must not make generate_scene_unique_id() repeat an earlier ID.");
+		}
+	}
+
+	SUBCASE("Saving the same content to the same path writes identical sub-resource IDs") {
+		Ref<Resource> resource = memnew(Resource);
+		Ref<Resource> child = memnew(Resource);
+		child->set_name("child");
+		resource->set_meta("child", child);
+		const String path = TestUtils::get_temp_path("unique_id_sub.tres");
+
+		REQUIRE(child->get_scene_unique_id().is_empty());
+		ResourceSaver::save(resource, path);
+		const String first = FileAccess::get_file_as_string(path);
+		REQUIRE(first.contains("[sub_resource"));
+
+		child->set_scene_unique_id("");
+		ResourceSaver::save(resource, path);
+		const String second = FileAccess::get_file_as_string(path);
+
+		CHECK_MESSAGE(first == second, "Re-saving identical content to the same path must write identical sub-resource IDs.");
+	}
 }
 
 } // namespace TestResource
