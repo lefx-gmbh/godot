@@ -27,7 +27,7 @@ Discussion about this fork belongs here, not on the Godot issue tracker.
 | --- | --- | --- |
 | `fixes/master` | Godot `master` with all fixes | Available |
 | `fixes/4.7` | Godot `4.7.x-stable` with all fixes | Planned |
-| `fix/<topic>` | One fix, on top of Godot `master` | Available |
+| `fix/<topic>` | One fix, on top of Godot `master` or of the fix branch it needs. Its page says which. | Available |
 | `master`, `4.7` | Unchanged copies of Godot `master` and `4.7` | Available |
 
 Branches without a prefix hold Godot as it is. Our releases have tags such as `4.7.2-stable-fixes.1`. We do not change the Godot tags, such as `4.7.2-stable`.
@@ -36,25 +36,15 @@ We bring the `fixes/*` branches up to date with Godot about once a week, and aft
 
 ## Fixes
 
-### Inherited scenes keep up with their base scene
+Each fix has a page with the problem, the cause, the Godot issues we measured, and its limits.
 
-Branches: [`fix/stale-base-scene-state`](https://github.com/lefx-gmbh/godot/tree/fix/stale-base-scene-state) and [`fix/editor-reload-base-chain`](https://github.com/lefx-gmbh/godot/tree/fix/editor-reload-base-chain)
+| Fix | Godot issues measured | Branch |
+| --- | --- | --- |
+| [Inherited scenes keep up with their base scene](fix-inherited-scenes.md) | #41492, #43032, #57089, #28090, #94912 | `fix/stale-base-scene-state`, `fix/editor-reload-base-chain` |
+| [A cleared Node reference stays cleared](fix-clear-node-reference.md) | #92879 | `fix/clear-node-reference` |
+| [An exported value survives a change of its type](fix-exported-type-change.md) | #46103 | `fix/exported-type-change` |
 
-Godot issue: [#7984](https://github.com/godotengine/godot/issues/7984), open since 2016.
-
-When you change a base scene, the scenes that inherit from it can lose the change, or show an old version. There are two causes:
-
-1. An inherited scene reads its base scene live during a save. If the base scene changed before that save, the inherited scene stores the wrong data. The fix keeps a copy of the base state that the inherited scene knows. Files: `scene/resources/packed_scene.{cpp,h}`.
-2. The editor looks only at the direct base scene to find scenes that need a reload. A change two or more levels down the chain does not cause a reload. The fix examines the full chain. Files: `editor/editor_data.{cpp,h}`.
-
-We rebuilt these Godot issues on Godot `master` (4.8 in development). Each one fails on an unchanged build of the same commit and passes on this fork:
-
-- [#41492](https://github.com/godotengine/godot/issues/41492)
-- [#43032](https://github.com/godotengine/godot/issues/43032)
-- [#57089](https://github.com/godotengine/godot/issues/57089)
-- [#28090](https://github.com/godotengine/godot/issues/28090)
-
-Other reports describe the same symptoms. We did not rebuild them, so we make no claim about them.
+We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
 ## Build
 
