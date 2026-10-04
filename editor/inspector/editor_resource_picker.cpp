@@ -1352,13 +1352,8 @@ void EditorResourcePicker::_gather_resources_to_duplicate(const Ref<Resource> p_
 }
 
 void EditorResourcePicker::_duplicate_selected_resources() {
-	// Copied Array and Dictionary properties, set once at the end, also for a setter that keeps a copy.
-	struct ContainerUpdate {
-		Ref<Resource> parent;
-		StringName property;
-		Variant container;
-	};
-	LocalVector<ContainerUpdate> container_updates;
+	// Copied Array and Dictionary properties by parent and property, set once at the end, also for a setter that keeps a copy.
+	HashMap<Pair<Ref<Resource>, StringName>, Variant> container_updates;
 
 	for (TreeItem *item = duplicate_resources_tree->get_root(); item; item = item->get_next_in_tree()) {
 		if (!item->is_checked(0)) {
@@ -1384,26 +1379,19 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 			continue;
 		}
 
-		Variant property;
-		for (const ContainerUpdate &update : container_updates) {
-			if (update.parent == parent && update.property == StringName(meta[1])) {
-				property = update.container;
-				break;
-			}
-		}
-		if (property.get_type() == Variant::NIL) {
-			property = parent->get(meta[1]).duplicate();
-			container_updates.push_back({ parent, meta[1], property });
-			parent_meta.push_back(property); // Append Duplicated Type so we can check if it's already been duplicated.
+		const Pair<Ref<Resource>, StringName> key(parent, meta[1]);
+		Variant *property = container_updates.getptr(key);
+		if (!property) {
+			property = &container_updates.insert(key, parent->get(meta[1]).duplicate())->value;
 		}
 
 		if (property_type == Variant::ARRAY) {
-			Array arr = property;
+			Array arr = *property;
 			arr[meta[2]] = unique_resource;
 			continue;
 		}
 
-		Dictionary dict = property;
+		Dictionary dict = *property;
 		LocalVector<Variant> keys = dict.get_key_list();
 
 		if (meta[2].get_type() == Variant::OBJECT) {
@@ -1421,8 +1409,8 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 			dict[meta[2]] = unique_resource;
 		}
 	}
-	for (const ContainerUpdate &update : container_updates) {
-		update.parent->set(update.property, update.container);
+	for (const KeyValue<Pair<Ref<Resource>, StringName>, Variant> &E : container_updates) {
+		E.key.first->set(E.key.second, E.value);
 	}
 	_resource_changed();
 }
