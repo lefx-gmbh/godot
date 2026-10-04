@@ -101,6 +101,14 @@ TEST_CASE("[SceneTree][AnimationBlendTree] Replace existing child node through s
 		REQUIRE_EQ(connections->size(), 1);
 		CHECK_EQ(connections->operator[](0), StringName("A"));
 
+		// A replacement with fewer inputs keeps no connections beyond its inputs.
+		Ref<AnimationNodeBlend2> blend;
+		blend.instantiate();
+		blend_tree->add_node("B", blend);
+		blend_tree->connect_node("B", 0, "A");
+		blend_tree->set("nodes/B/node", copy->duplicate());
+		CHECK_EQ(blend_tree->get_node_connection_array("B")->size(), 0u);
+
 		// The output node must not be replaceable.
 		Ref<AnimationNode> output = blend_tree->get_node("output");
 		Ref<AnimationNodeOutput> other_output;
