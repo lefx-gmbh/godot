@@ -1394,6 +1394,14 @@ void EditorResourcePicker::_gather_resources_to_duplicate(const Ref<Resource> p_
 }
 
 void EditorResourcePicker::_duplicate_selected_resources() {
+	// Copied Array and Dictionary properties, set once at the end, also for a setter that keeps a copy.
+	struct ContainerUpdate {
+		Ref<Resource> parent;
+		StringName property;
+		Variant container;
+	};
+	LocalVector<ContainerUpdate> container_updates;
+
 	for (TreeItem *item = duplicate_resources_tree->get_root(); item; item = item->get_next_in_tree()) {
 		if (!item->is_checked(0)) {
 			continue;
@@ -1418,18 +1426,22 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 			continue;
 		}
 
-		Variant property = parent->get(meta[1]);
-
-		if (!parent_meta.has(property)) {
-			property = property.duplicate();
-			parent->set(meta[1], property);
+		Variant property;
+		for (const ContainerUpdate &update : container_updates) {
+			if (update.parent == parent && update.property == StringName(meta[1])) {
+				property = update.container;
+				break;
+			}
+		}
+		if (property.get_type() == Variant::NIL) {
+			property = parent->get(meta[1]).duplicate();
+			container_updates.push_back({ parent, meta[1], property });
 			parent_meta.push_back(property); // Append Duplicated Type so we can check if it's already been duplicated.
 		}
 
 		if (property_type == Variant::ARRAY) {
 			Array arr = property;
 			arr[meta[2]] = unique_resource;
-			parent->set(meta[1], arr); // Again, for a setter that keeps a copy of the container.
 			continue;
 		}
 
@@ -1450,7 +1462,9 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 		} else {
 			dict[meta[2]] = unique_resource;
 		}
-		parent->set(meta[1], dict); // Again, for a setter that keeps a copy of the container.
+	}
+	for (const ContainerUpdate &update : container_updates) {
+		update.parent->set(update.property, update.container);
 	}
 	_resource_changed();
 }
