@@ -130,6 +130,14 @@ void Resource::seed_scene_unique_id(uint32_t p_seed) {
 	unique_id_gen.seed(p_seed);
 }
 
+RandomPCG Resource::get_scene_unique_id_generator() {
+	return unique_id_gen;
+}
+
+void Resource::set_scene_unique_id_generator(const RandomPCG &p_generator) {
+	unique_id_gen = p_generator;
+}
+
 String Resource::generate_scene_unique_id() {
 	// Generate a unique enough hash, but still user-readable.
 	// If it's not unique it does not matter because the saver will try again.
