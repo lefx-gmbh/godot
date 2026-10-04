@@ -1421,10 +1421,10 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 			continue;
 		}
 
-		const Pair<Ref<Resource>, StringName> key(parent, meta[1]);
-		Variant *property = container_updates.getptr(key);
+		const Pair<Ref<Resource>, StringName> container_key(parent, meta[1]);
+		Variant *property = container_updates.getptr(container_key);
 		if (!property) {
-			property = &container_updates.insert(key, parent->get(meta[1]).duplicate())->value;
+			property = &container_updates.insert(container_key, parent->get(meta[1]).duplicate())->value;
 		}
 
 		if (property_type == Variant::ARRAY) {
