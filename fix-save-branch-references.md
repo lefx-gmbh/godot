@@ -10,11 +10,13 @@ Node `A` has `@export var target: Node`, set to its child `B`. You right-click `
 
 Save Branch as Scene saves the branch, then replaces it with a new instance of the saved scene. Node references elsewhere in the scene still pointed at the old nodes, which are no longer in the tree. A `NodePath` property is unaffected, because the new nodes have the same names.
 
-Change Type has the same problem and already solves it in `SceneTreeDock::perform_node_replace()`, with undo. Save Branch as Scene now calls that function too, for the branch root and every node below it. The function now takes a map from old node to new node, so it walks the scene once for the whole branch. Change Type passes a map with one entry and behaves as before. File: `editor/docks/scene_tree_dock.cpp`.
+Change Type has the same problem and already solves it in `SceneTreeDock::perform_node_replace()`, with undo. Save Branch as Scene now calls that function too, for the branch root and every node below it. The function now takes a map from old node to new node, so it walks the scene once for the whole branch. Change Type passes a map with one entry. File: `editor/docks/scene_tree_dock.cpp`.
+
+That function also checks each reference against the property's type hint. An untyped `Array` has no hint, and metadata has `"Resource"`. Neither fits a node, so the reference was replaced by an empty Object with a warning. A new node is now refused only when the old node fitted the hint and the new one does not. This also helps Change Type.
 
 ## Measured
 
-- [#84016](https://github.com/godotengine/godot/issues/84016): in a headless editor run, we used the real Save Branch action on `B`. We checked references to `B`, to `B/C` and in an `Array[Node]`. On an unchanged build of the same Godot `master` commit, all three are lost and saved as `NodePath("")`. On this fork all three point to the new instance and save as `NodePath("B")` and `NodePath("B/C")`. Undo restores the old state on both builds.
+- [#84016](https://github.com/godotengine/godot/issues/84016): in a headless editor run, we used the real Save Branch action on `B`. We checked references to `B`, to `B/C`, in an `Array[Node]`, in an untyped `Array` and in metadata. On an unchanged build of the same Godot `master` commit, all three are lost and saved as `NodePath("")`. On this fork all three point to the new instance and save as `NodePath("B")` and `NodePath("B/C")`. Undo restores the old state on both builds.
 
 Not reproduced, so not claimed: [#44526](https://github.com/godotengine/godot/issues/44526). We rebuilt four Save Branch variants with instance overrides and editable children, and all of them pass on the unchanged build.
 

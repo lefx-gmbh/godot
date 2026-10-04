@@ -16,6 +16,10 @@ The position is now saved when the parent is an instance root. Other nodes save 
 
 - [#99452](https://github.com/godotengine/godot/issues/99452), the reporter's layout, in a headless editor run. `Node2D_xxxx` is moved between the instance's `Node2D3` and `Node2D4`, then the scene is saved and reloaded. On an unchanged build of the same Godot `master` commit, the order after the reload is `Node2D3, Node2D4, Node2D_xxxx`. On this fork it is `Node2D3, Node2D_xxxx, Node2D4`.
 
+## Limits
+
+Every node added under an editable instance root now stores its position, also one simply added at the end. If the instanced scene later gains children, such a node keeps its stored position instead of staying last. Inherited scenes already behave this way. Scenes saved before the fix get the new `index` lines on their next save.
+
 ## Cost
 
 One more condition while packing a scene. Affected nodes store one more number.

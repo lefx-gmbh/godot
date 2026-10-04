@@ -10,7 +10,7 @@ You use **Make Unique (Recursive)** on an AnimationLibrary, an AnimationNodeBlen
 
 The command duplicates each selected sub-resource and puts the copy back into its parent. Two cases failed:
 
-- **Arrays and dictionaries.** The parent got a copy of the container first, and the copies of the sub-resources were put into it afterwards. AnimationLibrary stores its animations through a setter that keeps its own copy of the container, so the later changes never reached it. The command now sets the container again once it is filled. File: `editor/inspector/editor_resource_picker.cpp`.
+- **Arrays and dictionaries.** The parent got a copy of the container first, and the copies of the sub-resources were put into it afterwards. AnimationLibrary stores its animations through a setter that keeps its own copy of the container, so the later changes never reached it. The command now keeps one copy per property and sets it once, after all copies are in. File: `editor/inspector/editor_resource_picker.cpp`.
 - **Nodes of blend trees and state machines.** The copy went back through the storage properties `nodes/<name>/node` and `states/<name>/node`. Those only added nodes and refused a name that already existed. They now replace an existing node in place, so its position, connections and transitions stay. A state machine uses its existing `replace_node()`. A blend tree still refuses to replace its output node. Files: `scene/animation/animation_blend_tree.cpp`, `scene/animation/animation_node_state_machine.cpp`.
 
 ## Measured
@@ -22,7 +22,7 @@ In a headless editor run, through the real picker action: menu entry, dialog, co
 
 ## Cost
 
-None outside this command. Setting a storage property for a node name that already exists used to fail with an error and now replaces the node.
+Setting `nodes/<name>/node` or `states/<name>/node` for a name that already exists, from any caller including scripts, used to fail with an error and now replaces the node, keeping position and connections (fitted to the new node's input count) or transitions.
 
 ## Tests
 
