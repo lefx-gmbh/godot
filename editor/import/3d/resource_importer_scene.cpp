@@ -1125,10 +1125,10 @@ Node *ResourceImporterScene::_pre_fix_animations(Node *p_node, Node *p_root, con
 	return p_node;
 }
 
-Node *ResourceImporterScene::_post_fix_animations(Node *p_node, Node *p_root, const Dictionary &p_node_data, const Dictionary &p_animation_data, float p_animation_fps, bool p_remove_immutable_tracks) {
+Node *ResourceImporterScene::_post_fix_animations(Node *p_node, Node *p_root, const Dictionary &p_node_data, const Dictionary &p_animation_data, float p_animation_fps, bool p_remove_immutable_tracks, LocalVector<Pair<Ref<Animation>, String>> &r_animation_saves) {
 	// children first
 	for (int i = 0; i < p_node->get_child_count(); i++) {
-		Node *r = _post_fix_animations(p_node->get_child(i), p_root, p_node_data, p_animation_data, p_animation_fps, p_remove_immutable_tracks);
+		Node *r = _post_fix_animations(p_node->get_child(i), p_root, p_node_data, p_animation_data, p_animation_fps, p_remove_immutable_tracks, r_animation_saves);
 		if (!r) {
 			i--; //was erased
 		}
@@ -1360,7 +1360,7 @@ Node *ResourceImporterScene::_post_fix_animations(Node *p_node, Node *p_root, co
 					}
 
 					if (animation_slices.size() > 0) {
-						_create_slices(ap, anim, animation_slices, true);
+						_create_slices(ap, anim, animation_slices, true, r_animation_saves);
 					}
 				}
 				{
@@ -1379,7 +1379,7 @@ Node *ResourceImporterScene::_post_fix_animations(Node *p_node, Node *p_root, co
 				String path = anim_settings["save_to_file/path"];
 				bool keep_custom = anim_settings["save_to_file/keep_custom_tracks"];
 
-				Ref<Animation> saved_anim = _save_animation_to_file(anim, save, path, keep_custom);
+				Ref<Animation> saved_anim = _save_animation_to_file(anim, save, path, keep_custom, r_animation_saves);
 
 				if (saved_anim != anim) {
 					Ref<AnimationLibrary> al = ap->get_animation_library(ap->find_animation_library(anim));
@@ -1957,7 +1957,7 @@ Node *ResourceImporterScene::_post_fix_node(Node *p_node, Node *p_root, HashMap<
 	return p_node;
 }
 
-Ref<Animation> ResourceImporterScene::_save_animation_to_file(Ref<Animation> anim, bool p_save_to_file, const String &p_save_to_path, bool p_keep_custom_tracks) {
+Ref<Animation> ResourceImporterScene::_save_animation_to_file(Ref<Animation> anim, bool p_save_to_file, const String &p_save_to_path, bool p_keep_custom_tracks, LocalVector<Pair<Ref<Animation>, String>> &r_animation_saves) {
 	String res_path = ResourceUID::ensure_path(p_save_to_path);
 	if (!p_save_to_file || !res_path.is_resource_file()) {
 		return anim;
@@ -1985,11 +1985,11 @@ Ref<Animation> ResourceImporterScene::_save_animation_to_file(Ref<Animation> ani
 	}
 	anim->set_path(res_path, true); // Set path to save externally.
 	// Saved by import() after the post-import script and plugins, so their changes reach the file.
-	pending_animation_saves.push_back(Pair<Ref<Animation>, String>(anim, p_save_to_path));
+	r_animation_saves.push_back(Pair<Ref<Animation>, String>(anim, p_save_to_path));
 	return anim;
 }
 
-void ResourceImporterScene::_create_slices(AnimationPlayer *ap, Ref<Animation> anim, const Array &p_slices, bool p_bake_all) {
+void ResourceImporterScene::_create_slices(AnimationPlayer *ap, Ref<Animation> anim, const Array &p_slices, bool p_bake_all, LocalVector<Pair<Ref<Animation>, String>> &r_animation_saves) {
 	Ref<AnimationLibrary> al = ap->get_animation_library(ap->find_animation_library(anim));
 
 	for (int i = 0; i < p_slices.size(); i += 7) {
@@ -2135,7 +2135,7 @@ void ResourceImporterScene::_create_slices(AnimationPlayer *ap, Ref<Animation> a
 
 		al->add_animation(name, new_anim);
 
-		Ref<Animation> saved_anim = _save_animation_to_file(new_anim, save_to_file, save_to_path, keep_current);
+		Ref<Animation> saved_anim = _save_animation_to_file(new_anim, save_to_file, save_to_path, keep_current, r_animation_saves);
 		if (saved_anim != new_anim) {
 			al->add_animation(name, saved_anim);
 		}
@@ -3200,7 +3200,6 @@ Error ResourceImporterScene::import(ResourceUID::ID p_source_id, const String &p
 
 	EditorProgress progress("import", TTR("Import Scene"), 104);
 	progress.step(TTR("Importing Scene..."), 0);
-	pending_animation_saves.clear(); // An import that failed half way leaves its list.
 
 	for (Ref<EditorSceneFormatImporter> importer_elem : scene_importers) {
 		List<String> extensions;
@@ -3333,7 +3332,9 @@ Error ResourceImporterScene::import(ResourceUID::ID p_source_id, const String &p
 	bool remove_immutable_tracks = p_options.has("animation/remove_immutable_tracks") ? (bool)p_options["animation/remove_immutable_tracks"] : true;
 	_pre_fix_animations(scene, scene, node_data, animation_data, fps);
 	_post_fix_node(scene, scene, collision_map, occluder_arrays, scanned_meshes, node_data, material_data, animation_data, fps, apply_root ? root_scale : 1.0, p_source_file, p_options);
-	_post_fix_animations(scene, scene, node_data, animation_data, fps, remove_immutable_tracks);
+	// Animations to save to their own files, with their save path, once the post-import script and plugins ran.
+	LocalVector<Pair<Ref<Animation>, String>> animation_saves;
+	_post_fix_animations(scene, scene, node_data, animation_data, fps, remove_immutable_tracks, animation_saves);
 
 	String root_type = p_options["nodes/root_type"];
 	Ref<Script> root_script = p_options["nodes/root_script"];
@@ -3442,7 +3443,7 @@ Error ResourceImporterScene::import(ResourceUID::ID p_source_id, const String &p
 		post_importer_plugins.write[i]->post_process(scene, p_options);
 	}
 
-	for (const Pair<Ref<Animation>, String> &E : pending_animation_saves) {
+	for (const Pair<Ref<Animation>, String> &E : animation_saves) {
 		const String res_path = E.first->get_path();
 		ERR_CONTINUE_MSG(ResourceSaver::save(E.first, res_path, ResourceSaver::FLAG_CHANGE_PATH) != OK, "Saving of animation failed: " + res_path);
 		if (E.second.begins_with("uid://")) {
@@ -3450,7 +3451,6 @@ Error ResourceImporterScene::import(ResourceUID::ID p_source_id, const String &p
 			ResourceSaver::set_uid(res_path, ResourceUID::get_singleton()->text_to_id(E.second));
 		}
 	}
-	pending_animation_saves.clear();
 
 	progress.step(TTR("Saving..."), 104);
 
