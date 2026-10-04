@@ -3452,10 +3452,12 @@ void SceneTreeDock::perform_node_replace(Node *p_base, const HashMap<Node *, Nod
 bool SceneTreeDock::_check_node_recursive(Variant &r_variant, const HashMap<Node *, Node *> &p_replacements, const String type_hint, String &r_warn_message) {
 	switch (r_variant.get_type()) {
 		case Variant::OBJECT: {
-			Node *const *by_node = p_replacements.getptr(Object::cast_to<Node>(r_variant.get_validated_object()));
+			Node *old_node = Object::cast_to<Node>(r_variant.get_validated_object());
+			Node *const *by_node = p_replacements.getptr(old_node);
 			if (by_node) {
-				// No type hint, as in an untyped Array or in metadata, accepts any node.
-				if (type_hint.is_empty() || (*by_node)->is_class(type_hint) || EditorNode::get_singleton()->is_object_of_custom_type(*by_node, type_hint)) {
+				// A hint the old node did not fit either, like none in an untyped Array or "Resource" in metadata, is no node type.
+				const auto fits = [&](Node *p_node) { return p_node->is_class(type_hint) || EditorNode::get_singleton()->is_object_of_custom_type(p_node, type_hint); };
+				if (fits(*by_node) || !fits(old_node)) {
 					r_variant = *by_node;
 				} else {
 					r_variant = memnew(Object);
