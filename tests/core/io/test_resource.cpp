@@ -627,6 +627,44 @@ TEST_CASE("[Resource] Breaking circular references on save") {
 	resource_c->remove_meta("next");
 }
 
+// The getter of this resource saves another resource, as a script getter can do.
+class NestedSaveResource : public Resource {
+	GDCLASS(NestedSaveResource, Resource);
+
+	Ref<Resource> child;
+
+protected:
+	static void _bind_methods() {
+		ClassDB::bind_method(D_METHOD("set_child", "child"), &NestedSaveResource::set_child);
+		ClassDB::bind_method(D_METHOD("get_child"), &NestedSaveResource::get_child);
+		ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "child", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), "set_child", "get_child");
+	}
+
+public:
+	String nested_path;
+	mutable int nested_saves = 0;
+
+	void set_child(const Ref<Resource> &p_child) { child = p_child; }
+	Ref<Resource> get_child() const {
+		// ClassDB also reads defaults through this getter, before a test sets the path.
+		if (!nested_path.is_empty()) {
+			Ref<Resource> other = memnew(Resource);
+			if (ResourceSaver::save(other, nested_path) == OK) {
+				nested_saves++;
+			}
+		}
+		return child;
+	}
+
+	static void register_class_once() {
+		static bool registered = false;
+		if (!registered) {
+			GDREGISTER_CLASS(NestedSaveResource);
+			registered = true;
+		}
+	}
+};
+
 TEST_CASE("[Resource] Scene unique IDs and saving") {
 	SUBCASE("generate_scene_unique_id() stays fresh after saving to a fixed path") {
 		Ref<Resource> resource = memnew(Resource);
@@ -634,9 +672,9 @@ TEST_CASE("[Resource] Scene unique IDs and saving") {
 			INFO(file);
 			const String path = TestUtils::get_temp_path(file);
 
-			ResourceSaver::save(resource, path);
+			REQUIRE(ResourceSaver::save(resource, path) == OK);
 			const String a = Resource::generate_scene_unique_id();
-			ResourceSaver::save(resource, path);
+			REQUIRE(ResourceSaver::save(resource, path) == OK);
 			const String b = Resource::generate_scene_unique_id();
 
 			CHECK_MESSAGE(a != b, "Saving to the same path must not make generate_scene_unique_id() repeat an earlier ID.");
@@ -651,15 +689,43 @@ TEST_CASE("[Resource] Scene unique IDs and saving") {
 		const String path = TestUtils::get_temp_path("unique_id_sub.tres");
 
 		REQUIRE(child->get_scene_unique_id().is_empty());
-		ResourceSaver::save(resource, path);
+		REQUIRE(ResourceSaver::save(resource, path) == OK);
 		const String first = FileAccess::get_file_as_string(path);
 		REQUIRE(first.contains("[sub_resource"));
 
 		child->set_scene_unique_id("");
-		ResourceSaver::save(resource, path);
+		REQUIRE(ResourceSaver::save(resource, path) == OK);
 		const String second = FileAccess::get_file_as_string(path);
 
 		CHECK_MESSAGE(first == second, "Re-saving identical content to the same path must write identical sub-resource IDs.");
+	}
+
+	SUBCASE("A save inside a getter does not change the IDs of the outer save") {
+		NestedSaveResource::register_class_once();
+		Ref<NestedSaveResource> resource = memnew(NestedSaveResource);
+		Ref<Resource> child = memnew(Resource);
+		resource->set_child(child);
+		for (const String &extension : { String("tres"), String("res") }) {
+			INFO(extension);
+			const String path = TestUtils::get_temp_path("unique_id_outer." + extension);
+			resource->nested_path = TestUtils::get_temp_path("unique_id_inner." + extension);
+			resource->nested_saves = 0;
+
+			String ids[3];
+			for (String &id : ids) {
+				child->set_scene_unique_id("");
+				REQUIRE(ResourceSaver::save(resource, path) == OK);
+				id = child->get_scene_unique_id();
+			}
+			REQUIRE(resource->nested_saves > 0);
+			CHECK_MESSAGE(ids[0] == ids[1], "A nested save must not change the sub-resource IDs of the outer save.");
+			CHECK_MESSAGE(ids[1] == ids[2], "A nested save must not change the sub-resource IDs of the outer save.");
+
+			const String a = Resource::generate_scene_unique_id();
+			REQUIRE(ResourceSaver::save(resource, path) == OK);
+			const String b = Resource::generate_scene_unique_id();
+			CHECK_MESSAGE(a != b, "A save with a nested save must not make generate_scene_unique_id() repeat an earlier ID.");
+		}
 	}
 }
 

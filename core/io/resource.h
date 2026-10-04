@@ -36,6 +36,7 @@
 #include "core/templates/self_list.h"
 
 class Node;
+class RandomPCG;
 class RWLock;
 
 #define RES_BASE_EXTENSION(m_ext) \
@@ -147,6 +148,8 @@ public:
 	_FORCE_INLINE_ bool is_built_in() const { return path_cache.is_empty() || path_cache.contains("::") || path_cache.begins_with("local://"); }
 
 	static void seed_scene_unique_id(uint32_t p_seed);
+	static RandomPCG get_scene_unique_id_generator();
+	static void set_scene_unique_id_generator(const RandomPCG &p_generator);
 	static String generate_scene_unique_id();
 	void set_scene_unique_id(const String &p_id);
 	String get_scene_unique_id() const;

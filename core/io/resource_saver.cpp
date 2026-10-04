@@ -33,6 +33,7 @@
 #include "core/config/project_settings.h"
 #include "core/io/file_access.h"
 #include "core/io/resource_loader.h"
+#include "core/math/random_pcg.h"
 #include "core/object/class_db.h"
 #include "core/object/script_language.h"
 
@@ -126,10 +127,12 @@ Error ResourceSaver::save(RequiredParam<Resource> p_resource, const String &p_pa
 			resource->set_path(local_path);
 		}
 
-		err = saver[i]->save(resource, path, p_flags);
 		// The saver seeds scene unique IDs from the path, so a file gets the same IDs each time.
-		// Unseed after it, or every save to that path would repeat the next ID made elsewhere.
-		Resource::seed_scene_unique_id(0);
+		// Give the caller its generator back after the saver. Otherwise a save from a getter changes
+		// the IDs of the outer save, and each save to one path repeats the next ID made elsewhere.
+		const RandomPCG id_generator = Resource::get_scene_unique_id_generator();
+		err = saver[i]->save(resource, path, p_flags);
+		Resource::set_scene_unique_id_generator(id_generator);
 
 		if (err == OK) {
 #ifdef TOOLS_ENABLED
