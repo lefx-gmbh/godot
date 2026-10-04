@@ -26,7 +26,7 @@ A `.import` file that is already bloated stays as it is. Its extra entries equal
 
 ## Cost
 
-Less than before: the import no longer writes thousands of entries back to disk. The copy is one dictionary per imported scene.
+One deep copy of the animation settings per import. Its time and temporary memory grow with the size of those settings. In the measured case, the `.import` file has 2048 fewer slice entries. We did not measure the import time or the peak memory.
 
 ## Tests
 

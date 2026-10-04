@@ -18,7 +18,7 @@ Now only a Resource value takes the duplicate path. Every other value is set the
 
 ## Cost
 
-None. The same number of property sets as before, without the skip.
+The values that were skipped are now set the normal way. Each of them costs one normal property assignment during the duplication, as any other property does. No other work is added.
 
 ## Tests
 
