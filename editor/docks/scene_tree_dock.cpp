@@ -3454,7 +3454,8 @@ bool SceneTreeDock::_check_node_recursive(Variant &r_variant, const HashMap<Node
 		case Variant::OBJECT: {
 			Node *const *by_node = p_replacements.getptr(Object::cast_to<Node>(r_variant.get_validated_object()));
 			if (by_node) {
-				if ((*by_node)->is_class(type_hint) || EditorNode::get_singleton()->is_object_of_custom_type(*by_node, type_hint)) {
+				// No type hint, as in an untyped Array or in metadata, accepts any node.
+				if (type_hint.is_empty() || (*by_node)->is_class(type_hint) || EditorNode::get_singleton()->is_object_of_custom_type(*by_node, type_hint)) {
 					r_variant = *by_node;
 				} else {
 					r_variant = memnew(Object);
