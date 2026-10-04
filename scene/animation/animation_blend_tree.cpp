@@ -1751,6 +1751,7 @@ bool AnimationNodeBlendTree::_set(const StringName &p_name, const Variant &p_val
 				_remove_node(existing->node);
 				existing->node->disconnect_changed(callable_mp(this, &AnimationNodeBlendTree::_child_node_changed));
 				existing->node = anode;
+				existing->connections.resize(anode->get_input_count());
 				_add_node(anode);
 				anode->connect_changed(callable_mp(this, &AnimationNodeBlendTree::_child_node_changed).bind(node_name), CONNECT_REFERENCE_COUNTED);
 				emit_changed();
