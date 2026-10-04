@@ -16,7 +16,7 @@ That function also checks each reference against the property's type hint. An un
 
 ## Measured
 
-- [#84016](https://github.com/godotengine/godot/issues/84016): in a headless editor run, we used the real Save Branch action on `B`. We checked references to `B`, to `B/C`, in an `Array[Node]`, in an untyped `Array` and in metadata. On an unchanged build of the same Godot `master` commit, all three are lost and saved as `NodePath("")`. On this fork all three point to the new instance and save as `NodePath("B")` and `NodePath("B/C")`. Undo restores the old state on both builds.
+- [#84016](https://github.com/godotengine/godot/issues/84016): in a headless editor run, we used the real Save Branch action on `B`. We checked references to `B`, to `B/C`, in an `Array[Node]`, in an untyped `Array` and in metadata. On an unchanged build of the same Godot `master` commit, all five still point to the removed nodes, and the typed ones are saved as `NodePath("")`. On this fork all five point to the new instance, and the typed ones save as `NodePath("B")` and `NodePath("B/C")`. Undo restores the old state on both builds.
 
 Not reproduced, so not claimed: [#44526](https://github.com/godotengine/godot/issues/44526). We rebuilt four Save Branch variants with instance overrides and editable children, and all of them pass on the unchanged build.
 
