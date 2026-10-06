@@ -1,76 +1,80 @@
-# Godot Engine
+# LEFX Godot Fixes Fork
 
-<p align="center">
-  <a href="https://godotengine.org">
-    <img src="misc/logo/logo_outlined.svg" width="400" alt="Godot Engine logo">
-  </a>
-</p>
+This repository is a fork of the [Godot Engine](https://github.com/godotengine/godot) that holds bug fixes. Each fix removes one cause that is behind a group of open Godot issues. The fork follows Godot `master` and the current stable release, and adds only these fixes.
 
-## 2D and 3D cross-platform game engine
+This fork is not official. The Godot Foundation and the Godot maintainers do not make it, review it or support it. For the engine itself, use [godotengine/godot](https://github.com/godotengine/godot).
 
-**[Godot Engine](https://godotengine.org) is a feature-packed, cross-platform
-game engine to create 2D and 3D games from a unified interface.** It provides a
-comprehensive set of [common tools](https://godotengine.org/features), so that
-users can focus on making games without having to reinvent the wheel. Games can
-be exported with one click to a number of platforms, including the major desktop
-platforms (Linux, macOS, Windows), mobile platforms (Android, iOS), as well as
-Web-based platforms and [consoles](https://godotengine.org/consoles).
+## AI use
 
-## Free, open source and community-driven
+AI substantially contributes to most fixes/changes in this fork. We use several AI agents and models, from frontier providers and on our own hardware. They do the analysis, write the fixes and write the tests. Other agents and models then review that work and check it a second time.
 
-Godot is completely free and open source under the very permissive [MIT license](https://godotengine.org/license).
-No strings attached, no royalties, nothing. The users' games are theirs, down
-to the last line of engine code. Godot's development is fully independent and
-community-driven, empowering users to help shape their engine to match their
-expectations. It is supported by the [Godot Foundation](https://godot.foundation/)
-not-for-profit.
+A person at LEFX chooses each problem, directs the work, draws up the concepts and makes the decisions. Afterwards we review the code and check the results in the editor.
 
-Before being open sourced in [February 2014](https://github.com/godotengine/godot/commit/0b806ee0fc9097fa7bda7ac0109191c9c5e0a1ac),
-Godot had been developed by [Juan Linietsky](https://github.com/reduz) and
-[Ariel Manzur](https://github.com/punto-) for several years as an in-house
-engine, used to publish several work-for-hire titles.
+Every fix comes with tests, or with steps to check it by hand where the code needs the running editor. Every claim below has a measurement behind it. Read the code and the tests before you rely on a fix.
 
-![Screenshot of a 3D scene in the Godot Engine editor](https://raw.githubusercontent.com/godotengine/godot-design/master/screenshots/editor_tps_demo_1920x1080.jpg)
+## Not for upstream
 
-## Getting the engine
+The Godot [contribution rules](https://contributing.godotengine.org/en/latest/development/contribution_rules.html) do not accept AI-written code. We respect that rule. For that reason:
 
-### Binary downloads
+- Do not open pull requests to Godot with code from this fork.
+- Do not report a bug to Godot that comes from a build of this fork. First do a check with an official build.
 
-Official binaries for the Godot editor and the export templates can be found
-[on the Godot website](https://godotengine.org/download).
+Discussion about this fork belongs here, not on the Godot issue tracker.
 
-### Compiling from source
+## Branches
 
-[See the official docs](https://docs.godotengine.org/en/latest/engine_details/development/compiling)
-for compilation instructions for every supported platform.
+| Branch | Content | Status |
+| --- | --- | --- |
+| `fixes/master` | Godot `master` with all fixes | Available |
+| `fixes/4.7` | Godot `4.7.2-stable` with all fixes | Available |
+| `fixes/4.8` | Godot `4.8.x-stable` with all fixes | Planned, after the release of Godot 4.8 |
+| `fix/<topic>` | One fix, on top of Godot `master` or of the fix branch it needs. Its page says which. | Available |
+| `master`, `4.7` | Unchanged copies of Godot `master` and `4.7` | Available |
 
-## Community and contributing
+Branches without a prefix hold Godot as it is. Our releases have tags such as `4.7.2-stable-fixes.1`. We do not change the Godot tags, such as `4.7.2-stable`.
 
-Godot is not only an engine but an ever-growing community of users and engine
-developers. The main community channels are listed [on the homepage](https://godotengine.org/community).
+We bring `fixes/master` up to date with Godot about once a week. A stable branch such as `fixes/4.7` moves only from one stable release to the next, for example from 4.7.2 to 4.7.3. A fix has a place on a branch only when its tests pass there.
 
-The best way to get in touch with the core engine developers is to join the
-[Godot Contributors Chat](https://chat.godotengine.org).
+## Fixes
 
-To get started contributing to the project, see the [contributing guide](CONTRIBUTING.md).
-This document also includes guidelines for reporting bugs.
+Each fix has a page with the problem, the cause, the Godot issues we measured, and its limits.
 
-## Documentation and demos
+| Fix | Godot issues measured | Branch |
+| --- | --- | --- |
+| [Inherited scenes keep up with their base scene](fix-inherited-scenes.md) | #41492, #43032, #57089, #28090, #94912 | `fix/stale-base-scene-state`, `fix/editor-reload-base-chain` |
+| [A cleared Node reference stays cleared](fix-clear-node-reference.md) | #92879 | `fix/clear-node-reference` |
+| [An exported value survives a change of its type](fix-exported-type-change.md) | #46103 | `fix/exported-type-change` |
+| [Node references survive Save Branch as Scene](fix-save-branch-references.md) | #84016 | `fix/save-branch-references` |
+| [Duplicating a node keeps every property marked ALWAYS_DUPLICATE](fix-duplicate-always-flag.md) | #82819 | `fix/duplicate-always-flag` |
+| [`.import` files of 3D scenes stay small](fix-import-slice-bloat.md) | #68936 | `fix/import-slice-bloat` |
+| [New resources get new IDs after a save](fix-unique-id-reseed.md) | #112332 | `fix/unique-id-reseed` |
+| [A post-import script's changes reach animations saved to file](fix-post-import-animation-save.md) | #85738 | `fix/post-import-animation-save` |
+| [Sub-resource IDs stay the same from the first save on](fix-sub-id-stable.md) | #120131 | `fix/sub-id-stable` |
+| [Pasted nodes keep their children inside an editable instance](fix-paste-editable-owner.md) | #115894 | `fix/paste-editable-owner` |
+| [A duplicated node's connections are not locked](fix-duplicate-inherited-flag.md) | #117415 | `fix/duplicate-inherited-flag` |
+| [Make Unique (Recursive) makes nested resources unique](fix-make-unique-recursive.md) | #94646, #111130 | `fix/make-unique-recursive` |
+| [A node added under an editable instance keeps its place](fix-editable-child-order.md) | #99452 | `fix/editable-child-order` |
+| [Detach Script keeps the values of a custom type](fix-detach-script-values.md) | #120143 | `fix/detach-script-values` |
+| [A NodePath to a property survives moving its node](fix-nodepath-subnames.md) | #122468 | `fix/nodepath-subnames` |
 
-The official documentation is hosted on [Read the Docs](https://docs.godotengine.org).
-It is maintained by the Godot community in its own [GitHub repository](https://github.com/godotengine/godot-docs).
+We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
-The [class reference](https://docs.godotengine.org/en/latest/classes/)
-is also accessible from the Godot editor.
+We measured the issues on Godot `master`. On `fixes/4.7`, the tests of each fix pass, but we did not measure the issues again on 4.7.
 
-We also maintain official demos in their own [GitHub repository](https://github.com/godotengine/godot-demo-projects)
-as well as a list of [awesome Godot community resources](https://github.com/godotengine/awesome-godot).
+## Build
 
-There are also a number of other
-[learning resources](https://docs.godotengine.org/en/latest/community/tutorials.html)
-provided by the community, such as text and video tutorials, demos, etc.
-Consult the [community channels](https://godotengine.org/community)
-for more information.
+Use the official [compiling instructions](https://docs.godotengine.org/en/latest/contributing/development/compiling/index.html). Before you build, check out the branch you want:
 
-[![Code Triagers Badge](https://www.codetriage.com/godotengine/godot/badges/users.svg)](https://www.codetriage.com/godotengine/godot)
-[![Translate on Weblate](https://hosted.weblate.org/widgets/godot-engine/-/godot/svg-badge.svg)](https://hosted.weblate.org/engage/godot-engine/?utm_source=widget)
+    git clone https://github.com/lefx-gmbh/godot.git
+    cd godot
+    git checkout fixes/master
+
+For the current stable release, check out `fixes/4.7` instead.
+
+## Report a problem
+
+We will open the issue tracker on this repository soon. When it is open, tell us the branch, the commit and the steps that cause the problem. If you can, attach a small project that shows it.
+
+## License
+
+Godot is available under the MIT license. See [LICENSE.txt](LICENSE.txt) and [COPYRIGHT.txt](COPYRIGHT.txt). The changes in this fork use the same license. LEFX is not affiliated with or endorsed by the Godot Foundation. LEFX uses the GODOT® name under a permissive license, only to say which engine this fork changes. This fork does not use the Godot logo.
