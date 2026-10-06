@@ -59,7 +59,7 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
-We measured the issues on Godot `master`. On `fixes/4.7`, the tests of each fix pass, but we did not measure the issues again on 4.7.
+We measured the issues on Godot `master`, and again on `4.7.2-stable`. Every issue in the table fails on the unchanged 4.7.2 build and passes on `fixes/4.7`.
 
 ## Build
 
