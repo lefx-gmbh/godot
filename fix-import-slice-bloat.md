@@ -1,6 +1,6 @@
 # `.import` files of 3D scenes stay small
 
-Branch: [`fix/import-slice-bloat`](https://github.com/lefx-gmbh/godot/tree/fix/import-slice-bloat), on top of Godot `master`. It is in `fixes/master`.
+Branch: [`fix/import-slice-bloat`](https://github.com/lefx-gmbh/godot/tree/fix/import-slice-bloat), on top of Godot `master`. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

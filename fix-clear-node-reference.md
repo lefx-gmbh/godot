@@ -1,6 +1,6 @@
 # A cleared Node reference stays cleared
 
-Branch: [`fix/clear-node-reference`](https://github.com/lefx-gmbh/godot/tree/fix/clear-node-reference). It builds on `fix/stale-base-scene-state`, because its tests use the same test helpers. It is in `fixes/master`.
+Branch: [`fix/clear-node-reference`](https://github.com/lefx-gmbh/godot/tree/fix/clear-node-reference). It builds on `fix/stale-base-scene-state`, because its tests use the same test helpers. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

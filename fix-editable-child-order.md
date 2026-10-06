@@ -1,6 +1,6 @@
 # A node added under an editable instance keeps its place
 
-Branch: [`fix/editable-child-order`](https://github.com/lefx-gmbh/godot/tree/fix/editable-child-order), on top of [`fix/clear-node-reference`](fix-clear-node-reference.md). It is in `fixes/master`.
+Branch: [`fix/editable-child-order`](https://github.com/lefx-gmbh/godot/tree/fix/editable-child-order), on top of [`fix/clear-node-reference`](fix-clear-node-reference.md). It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

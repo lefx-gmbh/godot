@@ -1,6 +1,6 @@
 # New resources get new IDs after a save
 
-Branch: [`fix/unique-id-reseed`](https://github.com/lefx-gmbh/godot/tree/fix/unique-id-reseed), on top of Godot `master`. It is in `fixes/master`.
+Branch: [`fix/unique-id-reseed`](https://github.com/lefx-gmbh/godot/tree/fix/unique-id-reseed), on top of Godot `master`. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

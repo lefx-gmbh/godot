@@ -1,6 +1,6 @@
 # A duplicated node's connections are not locked
 
-Branch: [`fix/duplicate-inherited-flag`](https://github.com/lefx-gmbh/godot/tree/fix/duplicate-inherited-flag), on top of [`fix/duplicate-always-flag`](fix-duplicate-always-flag.md). It is in `fixes/master`.
+Branch: [`fix/duplicate-inherited-flag`](https://github.com/lefx-gmbh/godot/tree/fix/duplicate-inherited-flag), on top of [`fix/duplicate-always-flag`](fix-duplicate-always-flag.md). It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

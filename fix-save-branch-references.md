@@ -1,6 +1,6 @@
 # Node references survive Save Branch as Scene
 
-Branch: [`fix/save-branch-references`](https://github.com/lefx-gmbh/godot/tree/fix/save-branch-references), on top of Godot `master`. It is in `fixes/master`.
+Branch: [`fix/save-branch-references`](https://github.com/lefx-gmbh/godot/tree/fix/save-branch-references), on top of Godot `master`. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

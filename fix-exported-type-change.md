@@ -1,6 +1,6 @@
 # An exported value survives a change of its type
 
-Branch: [`fix/exported-type-change`](https://github.com/lefx-gmbh/godot/tree/fix/exported-type-change), on top of Godot `master`. It is in `fixes/master`.
+Branch: [`fix/exported-type-change`](https://github.com/lefx-gmbh/godot/tree/fix/exported-type-change), on top of Godot `master`. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

@@ -1,6 +1,6 @@
 # Duplicating a node keeps every property marked ALWAYS_DUPLICATE
 
-Branch: [`fix/duplicate-always-flag`](https://github.com/lefx-gmbh/godot/tree/fix/duplicate-always-flag), on top of Godot `master`. It is in `fixes/master`.
+Branch: [`fix/duplicate-always-flag`](https://github.com/lefx-gmbh/godot/tree/fix/duplicate-always-flag), on top of Godot `master`. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

@@ -26,13 +26,14 @@ Discussion about this fork belongs here, not on the Godot issue tracker.
 | Branch | Content | Status |
 | --- | --- | --- |
 | `fixes/master` | Godot `master` with all fixes | Available |
-| `fixes/4.7` | Godot `4.7.x-stable` with all fixes | Planned |
+| `fixes/4.7` | Godot `4.7.2-stable` with all fixes | Available |
+| `fixes/4.8` | Godot `4.8.x-stable` with all fixes | Planned, after the release of Godot 4.8 |
 | `fix/<topic>` | One fix, on top of Godot `master` or of the fix branch it needs. Its page says which. | Available |
 | `master`, `4.7` | Unchanged copies of Godot `master` and `4.7` | Available |
 
 Branches without a prefix hold Godot as it is. Our releases have tags such as `4.7.2-stable-fixes.1`. We do not change the Godot tags, such as `4.7.2-stable`.
 
-We bring the `fixes/*` branches up to date with Godot about once a week, and after each stable release. A fix has a place on a branch only when its tests pass there.
+We bring `fixes/master` up to date with Godot about once a week. A stable branch such as `fixes/4.7` moves only from one stable release to the next, for example from 4.7.2 to 4.7.3. A fix has a place on a branch only when its tests pass there.
 
 ## Fixes
 
@@ -58,6 +59,8 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
+We measured the issues on Godot `master`. On `fixes/4.7`, the tests of each fix pass, but we did not measure the issues again on 4.7.
+
 ## Build
 
 Use the official [compiling instructions](https://docs.godotengine.org/en/latest/contributing/development/compiling/index.html). Before you build, check out the branch you want:
@@ -65,6 +68,8 @@ Use the official [compiling instructions](https://docs.godotengine.org/en/latest
     git clone https://github.com/lefx-gmbh/godot.git
     cd godot
     git checkout fixes/master
+
+For the current stable release, check out `fixes/4.7` instead.
 
 ## Report a problem
 

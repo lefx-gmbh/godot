@@ -1,6 +1,6 @@
 # Pasted nodes keep their children inside an editable instance
 
-Branch: [`fix/paste-editable-owner`](https://github.com/lefx-gmbh/godot/tree/fix/paste-editable-owner), on top of Godot `master`. It is in `fixes/master`.
+Branch: [`fix/paste-editable-owner`](https://github.com/lefx-gmbh/godot/tree/fix/paste-editable-owner), on top of Godot `master`. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

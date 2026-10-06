@@ -1,6 +1,6 @@
 # Make Unique (Recursive) makes nested resources unique
 
-Branch: [`fix/make-unique-recursive`](https://github.com/lefx-gmbh/godot/tree/fix/make-unique-recursive), on top of Godot `master`. It is in `fixes/master`.
+Branch: [`fix/make-unique-recursive`](https://github.com/lefx-gmbh/godot/tree/fix/make-unique-recursive), on top of Godot `master`. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

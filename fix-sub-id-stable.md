@@ -1,6 +1,6 @@
 # Sub-resource IDs stay the same from the first save on
 
-Branch: [`fix/sub-id-stable`](https://github.com/lefx-gmbh/godot/tree/fix/sub-id-stable), on top of [`fix/unique-id-reseed`](fix-unique-id-reseed.md). It is in `fixes/master`.
+Branch: [`fix/sub-id-stable`](https://github.com/lefx-gmbh/godot/tree/fix/sub-id-stable), on top of [`fix/unique-id-reseed`](fix-unique-id-reseed.md). It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

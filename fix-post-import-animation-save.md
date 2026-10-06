@@ -1,6 +1,6 @@
 # A post-import script's changes reach animations saved to file
 
-Branch: [`fix/post-import-animation-save`](https://github.com/lefx-gmbh/godot/tree/fix/post-import-animation-save), on top of Godot `master`. It is in `fixes/master`.
+Branch: [`fix/post-import-animation-save`](https://github.com/lefx-gmbh/godot/tree/fix/post-import-animation-save), on top of Godot `master`. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

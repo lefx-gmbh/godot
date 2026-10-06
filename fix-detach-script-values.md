@@ -1,6 +1,6 @@
 # Detach Script keeps the values of a custom type
 
-Branch: [`fix/detach-script-values`](https://github.com/lefx-gmbh/godot/tree/fix/detach-script-values), on top of Godot `master`. It is in `fixes/master`.
+Branch: [`fix/detach-script-values`](https://github.com/lefx-gmbh/godot/tree/fix/detach-script-values), on top of Godot `master`. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

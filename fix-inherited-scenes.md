@@ -1,6 +1,6 @@
 # Inherited scenes keep up with their base scene
 
-Branches: [`fix/stale-base-scene-state`](https://github.com/lefx-gmbh/godot/tree/fix/stale-base-scene-state) (cause 1) and [`fix/editor-reload-base-chain`](https://github.com/lefx-gmbh/godot/tree/fix/editor-reload-base-chain) (causes 1 and 2). Both are in `fixes/master`.
+Branches: [`fix/stale-base-scene-state`](https://github.com/lefx-gmbh/godot/tree/fix/stale-base-scene-state) (cause 1) and [`fix/editor-reload-base-chain`](https://github.com/lefx-gmbh/godot/tree/fix/editor-reload-base-chain) (causes 1 and 2). Both are in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 

@@ -1,6 +1,6 @@
 # A NodePath to a property survives moving its node
 
-Branch: [`fix/nodepath-subnames`](https://github.com/lefx-gmbh/godot/tree/fix/nodepath-subnames), on top of Godot `master`. It is in `fixes/master`.
+Branch: [`fix/nodepath-subnames`](https://github.com/lefx-gmbh/godot/tree/fix/nodepath-subnames), on top of Godot `master`. It is in `fixes/master` and `fixes/4.7`.
 
 ## Problem
 
