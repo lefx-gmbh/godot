@@ -75,6 +75,9 @@ Node *EditorSceneFormatImporterUFBX::import_scene(const String &p_path, uint32_t
 	if (p_options.has(SNAME("nodes/import_as_skeleton_bones")) ? (bool)p_options[SNAME("nodes/import_as_skeleton_bones")] : false) {
 		state->set_import_as_skeleton_bones(true);
 	}
+	if (p_options.has("animation/import")) {
+		state->set_create_animations(bool(p_options["animation/import"]));
+	}
 	p_flags |= EditorSceneFormatImporter::IMPORT_USE_NAMED_SKIN_BINDS;
 	state->set_bake_fps(p_options["animation/fps"]);
 	Error err = fbx->append_from_file(path, state, p_flags, p_path.get_base_dir());
