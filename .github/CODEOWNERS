@@ -192,6 +192,7 @@
 /modules/fbx/**/SCsub                         @godotengine/asset-pipeline @godotengine/buildsystem
 /modules/fbx/doc_classes/                     @godotengine/asset-pipeline @godotengine/documentation
 /modules/fbx/editor/                          @godotengine/asset-pipeline @godotengine/editor
+/modules/fbx/tests/                           @godotengine/asset-pipeline @godotengine/tests
 /modules/gltf/                                @godotengine/asset-pipeline
 /modules/gltf/**/*.py                         @godotengine/asset-pipeline @godotengine/buildsystem
 /modules/gltf/**/SCsub                        @godotengine/asset-pipeline @godotengine/buildsystem
