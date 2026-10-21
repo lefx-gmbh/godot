@@ -10,6 +10,8 @@ A base scene sets a property of type Node, for example `@export var weapon: Node
 
 During a save, Godot skipped every empty Node reference as "never set", before it compared the value with the base. So the clear was never written. The fix lets an empty reference in an instanced or inherited scene go through that comparison, and it saves `null` when the base sets a reference. Only a real null counts as a clear. Other values are skipped as before. File: `scene/resources/packed_scene.cpp`.
 
+Since Godot `master` commit `d952ac856d`, an inherited scene sets the base's node paths last, after its own values. On load, the base's reference then overwrote the saved `null`. So the fix also has a part on load. When a scene sets a null on a node, Godot drops the base's pending path for the same property. A path that a later scene sets still wins. `fixes/4.7` does not need this part, because Godot 4.7 does not have that commit.
+
 ## Files from Godot 4.2
 
 Godot 4.2 saved such a clear as `weapon = NodePath("")`, an empty path without the node-path marker. That form does not load as a clear either. In the editor, a script without `@tool` keeps the empty path, and each save writes it back, so the file stays wrong.
@@ -20,13 +22,15 @@ This fork saves an empty path in a Node property as `null`, so such a file heals
 
 - [#92879](https://github.com/godotengine/godot/issues/92879): we saved a clear in an inherited scene and in an instance. Both fail on an unchanged build of the same Godot `master` commit. Both pass on this fork. The reporter's own 4.2 file, opened and saved without changes, keeps `NodePath("")` on Godot and becomes `null` on this fork.
 
+For the part on load, we wrote an inherited scene that stores `null` by hand. Godot `master` at `6790667243` loads the base's reference. Godot `master` at `e7cfa294a0`, before `d952ac856d`, and this fork load an empty reference.
+
 [#106990](https://github.com/godotengine/godot/issues/106990) describes the same defect for an instanced scene. We did not rebuild its project, so we make no claim about it.
 
-An open Godot pull request, [#107032](https://github.com/godotengine/godot/pull/107032), changes the same code. It saves the clear as an empty path with the node-path marker. That form and `null` both load as an empty reference on Godot, on that pull request and on this fork.
+An open Godot pull request, [#107032](https://github.com/godotengine/godot/pull/107032), changes the same code. It saves the clear as an empty path with the node-path marker. On this fork, that form and `null` both load as an empty reference. Before `d952ac856d`, both forms also loaded as an empty reference on Godot and on that pull request. Since `d952ac856d`, Godot loads a `null` in an inherited scene as the base's reference.
 
 ## Cost
 
-None at run time. The change runs only when a scene is saved.
+The save part runs only when Godot saves a scene. The part on load checks the type of each property value that a scene sets. Only for a null value does it look through the pending node paths of the scene. We did not measure the cost. Scene files seldom contain a null value, because Godot does not save a value that is equal to its default.
 
 ## Tests
 
