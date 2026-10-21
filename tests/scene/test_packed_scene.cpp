@@ -1107,9 +1107,16 @@ TEST_CASE("[PackedScene][Editor] Clearing a Node reference set by the base") {
 		REQUIRE(shortcut_context_at(derived, NodePath(".")) != nullptr);
 		Object::cast_to<Control>(derived)->set_shortcut_context(nullptr);
 
-		Ref<SceneState> state = pack_scene(derived)->get_state();
+		Ref<PackedScene> packed = pack_scene(derived);
+		Ref<SceneState> state = packed->get_state();
 		CHECK_EQ(stored_properties(state, "Base"), "shortcut_context");
 		CHECK(stored_value(state, "Base", "shortcut_context").get_validated_object() == nullptr);
+
+		// Without a file, the null stays an Object null. It must also clear the reference.
+		Node *from_memory = packed->instantiate();
+		REQUIRE(from_memory != nullptr);
+		CHECK(shortcut_context_at(from_memory, NodePath(".")) == nullptr);
+		memdelete(from_memory);
 
 		Node *reloaded = round_trip(derived, TestUtils::get_temp_path("clear_ref_inh_derived.tscn"));
 		REQUIRE(reloaded != nullptr);
@@ -1193,6 +1200,35 @@ TEST_CASE("[PackedScene][Editor] Clearing a Node reference set by the base") {
 		outer = make_inherited(middle_ps);
 		CHECK_EQ(stored_properties(pack_scene(outer)->get_state(), "Base"), "");
 		reloaded = round_trip(outer, TestUtils::get_temp_path("clear_ref_chain_outer_unchanged.tscn"));
+		REQUIRE(reloaded != nullptr);
+		CHECK(shortcut_context_at(reloaded, NodePath(".")) == nullptr);
+		memdelete(reloaded);
+
+		// The outer scene sets it again. Its reference beats the middle scene's clear.
+		Object::cast_to<Control>(outer)->set_shortcut_context(outer->get_node(NodePath("Target")));
+		reloaded = round_trip(outer, TestUtils::get_temp_path("clear_ref_chain_outer_restored.tscn"));
+		REQUIRE(reloaded != nullptr);
+		CHECK(shortcut_context_at(reloaded, NodePath(".")) == reloaded->get_node_or_null(NodePath("Target")));
+		memdelete(reloaded);
+		memdelete(outer);
+	}
+
+	// Base and middle both set the reference. A clear in the outer scene beats both.
+	SUBCASE("chain where the middle scene points elsewhere") {
+		Ref<PackedScene> base_ps = make_base_with_reference(TestUtils::get_temp_path("clear_ref_redirect_base.tscn"), true);
+		Node *middle = make_inherited(base_ps);
+		Node *other = memnew(Node);
+		other->set_name("Other");
+		middle->add_child(other);
+		other->set_owner(middle);
+		Object::cast_to<Control>(middle)->set_shortcut_context(other);
+		Ref<PackedScene> middle_ps = save_and_load(middle, TestUtils::get_temp_path("clear_ref_redirect_middle.tscn"));
+		memdelete(middle);
+
+		Node *outer = make_inherited(middle_ps);
+		REQUIRE(shortcut_context_at(outer, NodePath(".")) == outer->get_node_or_null(NodePath("Other")));
+		Object::cast_to<Control>(outer)->set_shortcut_context(nullptr);
+		Node *reloaded = round_trip(outer, TestUtils::get_temp_path("clear_ref_redirect_outer.tscn"));
 		REQUIRE(reloaded != nullptr);
 		CHECK(shortcut_context_at(reloaded, NodePath(".")) == nullptr);
 		memdelete(reloaded);
