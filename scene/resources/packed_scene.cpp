@@ -554,6 +554,18 @@ Node *SceneState::_instantiate(GenEditState p_edit_state, LocalVector<DeferredNo
 							value = setup_resources_in_dictionary(set_dict, n, resources_local_to_scenes, node, snames[nprops[j].name], i, ret_nodes, p_edit_state);
 						}
 
+						if (value.get_type() == Variant::NIL || (value.get_type() == Variant::OBJECT && !value.get_validated_object())) {
+							// A null can clear a Node reference that a base scene sets. The base's path waits
+							// in deferred_node_paths and is resolved last, so remove it, or it overwrites the null.
+							for (uint32_t k = 0; k < deferred_node_paths.size();) {
+								if (deferred_node_paths[k].base == node->get_instance_id() && deferred_node_paths[k].property == snames[nprops[j].name]) {
+									deferred_node_paths.remove_at(k);
+								} else {
+									k++;
+								}
+							}
+						}
+
 						bool set_valid = true;
 						if (ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled() && value.get_type() == Variant::OBJECT) {
 							Ref<MissingResource> mr = value;
