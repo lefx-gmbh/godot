@@ -57,10 +57,11 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 | [Detach Script keeps the values of a custom type](fix-detach-script-values.md) | #120143 | `fix/detach-script-values` |
 | [A NodePath to a property survives moving its node](fix-nodepath-subnames.md) | #122468 | `fix/nodepath-subnames` |
 | [FBX import respects `animation/import=false`](fix-fbx-animation-import-option.md) | none found | `fix/fbx-animation-import-option` |
+| [Directional lightmaps get the full bounce light](fix-lightmap-sh-bounce.md) | none found | `fix/lightmap-sh-bounce` |
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
-We measured the issues on Godot `master`, and again on `4.7.2-stable`. Every issue in the table fails on the unchanged 4.7.2 build and passes on `fixes/4.7`.
+We measured the issues on Godot `master`. We measured them again on `4.7.2-stable` for the fixes in `fixes/4.7`. Each of those issues fails on the unchanged 4.7.2 build and passes on `fixes/4.7`. The lightmap fix is not in `fixes/4.7` yet.
 
 ## Build
 
