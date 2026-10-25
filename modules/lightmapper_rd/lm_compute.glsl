@@ -537,13 +537,13 @@ void trace_direct_light(vec3 p_position, vec3 p_normal, uint p_light_index, bool
 		const float shadowing_ray_count_sqrt = sqrt(float(total_ray_count));
 
 		// Setup tangent pass to calculate AA samples over the current texel.
-		vec3 aux = p_normal.y < 0.777 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+		vec3 aux = abs(p_normal.y) < 0.777 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
 		vec3 tangent = normalize(cross(p_normal, aux));
 		vec3 bitan = normalize(cross(p_normal, tangent));
 
 		// Setup light tangent pass to calculate samples over disk aligned towards the light
 		vec3 light_to_point = -shadow_dir;
-		vec3 light_aux = light_to_point.y < 0.777 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+		vec3 light_aux = abs(light_to_point.y) < 0.777 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
 		vec3 light_to_point_tan = normalize(cross(light_to_point, light_aux));
 		vec3 light_to_point_bitan = normalize(cross(light_to_point, light_to_point_tan));
 
@@ -554,6 +554,11 @@ void trace_direct_light(vec3 p_position, vec3 p_normal, uint p_light_index, bool
 			// Align the sample to world space.
 			vec3 disk_aligned = (disk_sample.x * tangent + disk_sample.y * bitan);
 			vec3 origin = p_position - disk_aligned;
+			// The jitter can move the origin through a wall or under an object. Then use the texel position.
+			// This costs one extra ray per AA sample and light.
+			if (trace_ray_any_hit(p_position + p_normal * bake_params.bias, origin + p_normal * bake_params.bias) != RAY_MISS) {
+				origin = p_position;
+			}
 			vec3 light_dir = normalize(light_pos - origin);
 
 			float power = 0.0;
@@ -591,7 +596,7 @@ void trace_direct_light(vec3 p_position, vec3 p_normal, uint p_light_index, bool
 						vec4 hit_albedo = vec4(1.0);
 						vec3 hit_position;
 						// Offset the ray origin for AA, offset the light position for soft shadows.
-						uint ret = trace_ray_closest_hit_triangle_albedo_alpha(origin - light_disk_to_point * (bake_params.bias + length(disk_sample)), p_position - light_disk_to_point * dist, hit_albedo, hit_position);
+						uint ret = trace_ray_closest_hit_triangle_albedo_alpha(origin - light_disk_to_point * bake_params.bias, p_position - light_disk_to_point * dist, hit_albedo, hit_position);
 						if (ret == RAY_MISS) {
 							if (!sample_did_hit) {
 								sample_penumbra = 1.0;
@@ -632,7 +637,7 @@ void trace_direct_light(vec3 p_position, vec3 p_normal, uint p_light_index, bool
 					vec4 hit_albedo = vec4(1.0);
 					vec3 hit_position;
 					// Offset the ray origin for AA, offset the light position for soft shadows.
-					uint ret = trace_ray_closest_hit_triangle_albedo_alpha(origin + light_dir * (bake_params.bias + length(disk_sample)), light_pos, hit_albedo, hit_position);
+					uint ret = trace_ray_closest_hit_triangle_albedo_alpha(origin + light_dir * bake_params.bias, light_pos, hit_albedo, hit_position);
 					if (ret == RAY_MISS) {
 						if (!sample_did_hit) {
 							sample_penumbra = 1.0;
@@ -859,6 +864,37 @@ vec3 trace_indirect_light(vec3 p_position, vec3 p_ray_dir, inout uint r_noise, f
 
 #endif
 
+#ifdef MODE_UNOCCLUDE
+// A back face near a sample usually means that the sample is inside an object. But a one-sided surface also shows
+// its back face, for example a plane at the edge of the sample's surface. Then the sample is in the open, and a
+// move past that face takes it off its surface. These two tests tell the cases apart.
+
+// Returns true if the surface of the sample continues at the moved position. The nearest face along the normal
+// must be a front face that points the same way as the sample, within about 25 degrees.
+bool surface_continues(vec3 p_position, vec3 p_normal, float p_texel_size) {
+	float distance;
+	vec3 normal;
+	return trace_ray_closest_hit_distance(p_position + p_normal * p_texel_size, p_position - p_normal * p_texel_size, distance, normal) == RAY_FRONT && dot(normal, p_normal) > 0.9;
+}
+
+// Returns true if the sample is inside a closed object. The nearest face along the normal and along each
+// tangent must be a back face.
+bool is_inside(vec3 p_position, vec3 p_normal, vec3 p_tangents[4]) {
+	float distance;
+	vec3 normal;
+	float range = length(bake_params.world_size);
+	if (trace_ray_closest_hit_distance(p_position, p_position + p_normal * range, distance, normal) != RAY_BACK) {
+		return false;
+	}
+	for (int i = 0; i < 4; i++) {
+		if (trace_ray_closest_hit_distance(p_position, p_position + p_tangents[i] * range, distance, normal) != RAY_BACK) {
+			return false;
+		}
+	}
+	return true;
+}
+#endif
+
 void main() {
 	// Check if invocation is out of bounds.
 #ifdef MODE_LIGHT_PROBES
@@ -1076,8 +1112,12 @@ void main() {
 			unocclude_mask = 1.0;
 			if (d <= texel_size && d < min_d) {
 				// This bias needs to be greater than the regular bias, because otherwise later, rays will go the other side when pointing back.
-				vertex_pos = base_pos + rays[i] * d + norm * bake_params.bias * 10.0;
-				min_d = d;
+				vec3 moved_pos = base_pos + rays[i] * d + norm * bake_params.bias * 10.0;
+				// Move the sample only if its surface continues behind the face, or if it is inside a closed object.
+				if (surface_continues(moved_pos, face_normal, texel_size) || is_inside(base_pos, face_normal, rays)) {
+					vertex_pos = moved_pos;
+					min_d = d;
+				}
 			}
 		}
 	}
@@ -1151,7 +1191,8 @@ void main() {
 
 	vec4 texel_color = texelFetch(sampler2DArray(source_light, linear_sampler), ivec3(atlas_pos, params.atlas_slice), 0);
 
-	for (int radius = 1; radius <= max_radius; radius++) {
+	// Only fill empty texels. A valid texel keeps its own value.
+	for (int radius = 1; radius <= max_radius && texel_color.a <= 0.5; radius++) {
 		for (uint i = 0; i < 8; i++) {
 			const ivec2 sample_pos = atlas_pos + directions[i] * radius;
 			// Texture bounds check for robustness.
@@ -1162,13 +1203,10 @@ void main() {
 
 			vec4 neighbor_color = texelFetch(sampler2DArray(source_light, linear_sampler), ivec3(sample_pos, params.atlas_slice), 0);
 			if (neighbor_color.a > 0.5) {
-				texel_color = neighbor_color;
+				// An alpha below 1 marks the texel as filled, so the seam pass does not read it as a valid texel.
+				texel_color = vec4(neighbor_color.rgb, 0.75);
 				break;
 			}
-		}
-
-		if (texel_color.a > 0.5) {
-			break;
 		}
 	}
 
