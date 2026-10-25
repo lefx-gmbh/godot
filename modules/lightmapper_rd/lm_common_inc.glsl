@@ -102,6 +102,7 @@ lights;
 struct Seam {
 	uvec2 a;
 	uvec2 b;
+	uvec2 opposite; // The third vertex of the triangles of a and b.
 };
 
 layout(set = 0, binding = 5, std430) restrict readonly buffer Seams {

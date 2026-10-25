@@ -515,6 +515,7 @@ void LightmapperRD::_create_acceleration_structures(RenderingDevice *rd, Size2i 
 				Edge edge(vtxs[k], vtxs[n], normal[k], normal[n]);
 				Vector2i edge_indices(t.indices[k], t.indices[n]);
 				EdgeUV2 uv2(uvs[k], uvs[n], edge_indices);
+				uv2.opposite = t.indices[(k + 2) % 3];
 
 				if (edge.b == edge.a) {
 					continue; //degenerate, somehow
@@ -541,6 +542,7 @@ void LightmapperRD::_create_acceleration_structures(RenderingDevice *rd, Size2i 
 					Seam seam;
 					seam.a = edge_indices;
 					seam.b = euv2->indices;
+					seam.opposite = Vector2i(uv2.opposite, euv2->opposite);
 					seam.slice = mi.slice;
 					seams.push_back(seam);
 					slice_seam_count.write[mi.slice]++;
@@ -695,10 +697,11 @@ void LightmapperRD::_create_acceleration_structures(RenderingDevice *rd, Size2i 
 	light_metadata.sort();
 
 	Vector<Vector2i> seam_buffer_vec;
-	seam_buffer_vec.resize(seams.size() * 2);
+	seam_buffer_vec.resize(seams.size() * 3);
 	for (uint32_t i = 0; i < seams.size(); i++) {
-		seam_buffer_vec.write[i * 2 + 0] = seams[i].a;
-		seam_buffer_vec.write[i * 2 + 1] = seams[i].b;
+		seam_buffer_vec.write[i * 3 + 0] = seams[i].a;
+		seam_buffer_vec.write[i * 3 + 1] = seams[i].b;
+		seam_buffer_vec.write[i * 3 + 2] = seams[i].opposite;
 	}
 
 	{ //buffers
@@ -718,7 +721,7 @@ void LightmapperRD::_create_acceleration_structures(RenderingDevice *rd, Size2i 
 		lights_buffer = rd->storage_buffer_create(lb.size(), lb);
 
 		// Even when there are no seams, the buffer must exist.
-		static const Vector2i empty_seams[2] = {};
+		static const Vector2i empty_seams[3] = {};
 		Span<uint8_t> sb = (seam_buffer_vec.is_empty() ? Span(empty_seams) : seam_buffer_vec.span()).reinterpret<uint8_t>();
 		seams_buffer = rd->storage_buffer_create(sb.size(), sb);
 
@@ -795,12 +798,6 @@ void LightmapperRD::_raster_geometry(RenderingDevice *rd, Size2i atlas_size, int
 		raster_push_constant.grid_size[0] = grid_size;
 		raster_push_constant.grid_size[1] = grid_size;
 		raster_push_constant.grid_size[2] = grid_size;
-
-		// Half pixel offset is required so the rasterizer doesn't output face edges directly aligned into pixels.
-		// This fixes artifacts where the pixel would be traced from the edge of a face, causing half the rays to
-		// be outside of the boundaries of the geometry. See <https://github.com/godotengine/godot/issues/69126>.
-		raster_push_constant.uv_offset[0] = -0.5f / float(atlas_size.x);
-		raster_push_constant.uv_offset[1] = -0.5f / float(atlas_size.y);
 
 		RD::DrawListID draw_list = rd->draw_list_begin(framebuffers[i], RD::DRAW_CLEAR_ALL, clear_colors, 1.0f, 0, Rect2(), RDD::BreadcrumbMarker::LIGHTMAPPER_PASS);
 		//draw opaque
@@ -1001,13 +998,16 @@ LightmapperRD::BakeError LightmapperRD::_denoise_oidn(RenderingDevice *p_rd, RID
 
 			Vector<uint8_t> old_data = p_rd->texture_get_data(p_source_light_tex, index);
 			Vector<uint8_t> new_data = img->get_data();
+			// The shadowmask is RGBA8. The light is RGBAH.
+			const uint32_t pixel_size = Image::get_format_pixel_size(img->get_format());
 			img.unref(); // Avoid copy on write.
+			ERR_FAIL_COND_V(new_data.size() != old_data.size(), BAKE_ERROR_LIGHTMAP_CANT_PRE_BAKE_MESHES);
 
-			uint32_t count = old_data.size() / 2;
-			const uint16_t *src = (const uint16_t *)old_data.ptr();
-			uint16_t *dst = (uint16_t *)new_data.ptrw();
-			for (uint32_t k = 0; k < count; k += 4) {
-				dst[k + 3] = src[k + 3];
+			// Copy back the alpha, which marks the valid texels.
+			const uint32_t alpha_size = pixel_size / 4;
+			uint8_t *dst = new_data.ptrw();
+			for (uint32_t k = pixel_size - alpha_size; k < (uint32_t)old_data.size(); k += pixel_size) {
+				memcpy(dst + k, old_data.ptr() + k, alpha_size);
 			}
 
 			p_rd->texture_update(p_dest_light_tex, index, new_data);
@@ -2302,7 +2302,9 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 			}
 		}
 
-		RID blendseams_raster_uniform = rd->uniform_set_create(uniforms, blendseams_line_raster_shader, 1);
+		// The line shader also reads the texture in its vertex stage, so each pipeline needs its own set.
+		RID blendseams_line_uniform = rd->uniform_set_create(uniforms, blendseams_line_raster_shader, 1);
+		RID blendseams_triangle_uniform = rd->uniform_set_create(uniforms, blendseams_triangle_raster_shader, 1);
 
 		bool debug = false;
 		RD::PipelineColorBlendState bs = RD::PipelineColorBlendState::create_blend(1);
@@ -2336,52 +2338,40 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 				RD::DrawListID draw_list = rd->draw_list_begin(framebuffers[i * subslices + k], RD::DRAW_CLEAR_DEPTH, Vector<Color>(), 1.0f, 0, Rect2(), RDD::BreadcrumbMarker::LIGHTMAPPER_PASS | seams_push_constant.slice);
 
 				rd->draw_list_bind_uniform_set(draw_list, raster_base_uniform, 0);
-				rd->draw_list_bind_uniform_set(draw_list, blendseams_raster_uniform, 1);
 
-				const int uv_offset_count = 9;
-				static const Vector3 uv_offsets[uv_offset_count] = {
-					Vector3(0, 0, 0.5), //using zbuffer, so go inwards-outwards
-					Vector3(0, 1, 0.2),
-					Vector3(0, -1, 0.2),
-					Vector3(1, 0, 0.2),
-					Vector3(-1, 0, 0.2),
-					Vector3(-1, -1, 0.1),
-					Vector3(1, -1, 0.1),
-					Vector3(1, 1, 0.1),
-					Vector3(-1, 1, 0.1),
-				};
+				/* step 1 average both sides on the edge, where the gutter cannot copy the other side (see the shader) */
 
-				/* step 1 use lines to blend the edges */
-				{
-					seams_push_constant.base_index = seam_offset;
-					rd->draw_list_bind_render_pipeline(draw_list, blendseams_line_raster_pipeline);
-					seams_push_constant.uv_offset[0] = (uv_offsets[0].x - 0.5f) / float(atlas_size.width);
-					seams_push_constant.uv_offset[1] = (uv_offsets[0].y - 0.5f) / float(atlas_size.height);
-					seams_push_constant.blend = uv_offsets[0].z;
-
-					rd->draw_list_set_push_constant(draw_list, &seams_push_constant, sizeof(RasterSeamsPushConstant));
-					rd->draw_list_draw(draw_list, false, 1, slice_seam_count[i] * 4);
-				}
+				rd->draw_list_bind_render_pipeline(draw_list, blendseams_line_raster_pipeline);
+				rd->draw_list_bind_uniform_set(draw_list, blendseams_line_uniform, 1);
+				seams_push_constant.base_index = seam_offset;
+				seams_push_constant.edge_offset = 0.0f;
+				rd->draw_list_set_push_constant(draw_list, &seams_push_constant, sizeof(RasterSeamsPushConstant));
+				rd->draw_list_draw(draw_list, false, 1, slice_seam_count[i] * 4);
 
 				/* step 2 use triangles to mask the interior */
 
 				{
 					seams_push_constant.base_index = triangle_offset;
 					rd->draw_list_bind_render_pipeline(draw_list, blendseams_triangle_raster_pipeline);
+					rd->draw_list_bind_uniform_set(draw_list, blendseams_triangle_uniform, 1);
 					seams_push_constant.blend = 0; //do not draw them, just fill the z-buffer so its used as a mask
 
 					rd->draw_list_set_push_constant(draw_list, &seams_push_constant, sizeof(RasterSeamsPushConstant));
 					rd->draw_list_draw(draw_list, false, 1, slice_triangle_count[i] * 3);
 				}
-				/* step 3 blend around the triangle */
+				/* step 3 copy the other side of the seam into the gutter */
 
 				rd->draw_list_bind_render_pipeline(draw_list, blendseams_line_raster_pipeline);
+				rd->draw_list_bind_uniform_set(draw_list, blendseams_line_uniform, 1);
 
-				for (int j = 1; j < uv_offset_count; j++) {
+				// Draw lines outside the chart edge every half texel, up to one texel of the final lightmap.
+				// Then they reach every gutter texel in that band, wherever the edge lies in its texel.
+				// The shader finds the source texel from the position of each gutter texel, so the line that
+				// covers a texel first does not change its value.
+				const int line_count = int(Math::round(2.0f * p_supersampling_factor));
+				for (int j = 1; j <= line_count; j++) {
 					seams_push_constant.base_index = seam_offset;
-					seams_push_constant.uv_offset[0] = (uv_offsets[j].x - 0.5f) / float(atlas_size.width);
-					seams_push_constant.uv_offset[1] = (uv_offsets[j].y - 0.5f) / float(atlas_size.height);
-					seams_push_constant.blend = uv_offsets[0].z;
+					seams_push_constant.edge_offset = 0.5f * j;
 
 					rd->draw_list_set_push_constant(draw_list, &seams_push_constant, sizeof(RasterSeamsPushConstant));
 					rd->draw_list_draw(draw_list, false, 1, slice_seam_count[i] * 4);

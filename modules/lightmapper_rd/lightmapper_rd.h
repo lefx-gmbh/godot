@@ -158,6 +158,7 @@ class LightmapperRD : public Lightmapper {
 		Vector2 a;
 		Vector2 b;
 		Vector2i indices;
+		uint32_t opposite = 0; // The third vertex of the triangle. It shows on which side of the edge the chart is.
 		bool operator==(const EdgeUV2 &p_uv2) const {
 			return a == p_uv2.a && b == p_uv2.b;
 		}
@@ -173,6 +174,7 @@ class LightmapperRD : public Lightmapper {
 	struct Seam {
 		Vector2i a;
 		Vector2i b;
+		Vector2i opposite; // The third vertex of the triangles of a and b.
 		uint32_t slice;
 		bool operator<(const Seam &p_seam) const {
 			return slice < p_seam.slice;
@@ -260,7 +262,8 @@ class LightmapperRD : public Lightmapper {
 		float uv_offset[2] = {};
 		uint32_t debug = 0;
 		float blend = 0.0;
-		uint32_t pad[2] = {};
+		float edge_offset = 0.0; // Texels outside the edge, line mode only.
+		uint32_t pad = 0;
 	};
 
 	struct PushConstant {

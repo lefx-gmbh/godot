@@ -94,14 +94,55 @@ layout(location = 1) out vec4 normal;
 layout(location = 2) out vec4 unocclude;
 
 void main() {
+	vec3 pos_a = vertices.data[vertex_indices.x].position;
+	vec3 pos_b = vertices.data[vertex_indices.y].position;
+	vec3 pos_c = vertices.data[vertex_indices.z].position;
+
 	vec3 vertex_pos = vertex_interp;
+	vec3 weights = barycentric;
+	{
+		// Rays start at bias from the sample and ignore hits nearer than bias. So a sample nearer than
+		// 2 * bias to an edge can send rays past a wall that meets the edge. Keep a margin a little
+		// larger than that, but not more than a third of the smallest triangle height. That third is not
+		// more than the inradius, so a point at the margin from all edges always exists.
+		const float EDGE_MARGIN_BIASES = 2.1; // 2 * bias, plus some slack.
+		vec3 n = cross(pos_b - pos_a, pos_c - pos_a);
+		vec3 edges[3] = vec3[](pos_c - pos_b, pos_a - pos_c, pos_b - pos_a);
+		vec3 heights = length(n) / vec3(length(edges[0]), length(edges[1]), length(edges[2]));
+		vec3 inward[3] = vec3[](normalize(cross(n, edges[0])), normalize(cross(n, edges[1])), normalize(cross(n, edges[2])));
+		if (all(greaterThan(heights, vec3(0.0)))) {
+			float margin = min(EDGE_MARGIN_BIASES * params.bias, min(heights.x, min(heights.y, heights.z)) / 3.0);
+			// The weight of a vertex is the distance to the opposite edge divided by the height.
+			vec3 min_weights = margin / heights;
+			// The weights add up to 1, and the minimum weights add up to 1 or less. So at most two edges are near.
+			bvec3 near = lessThan(weights, min_weights);
+			if (int(near.x) + int(near.y) + int(near.z) == 1) {
+				// Move straight away from the edge. A move along the edge would shift the sample on thin triangles.
+				int i = near.x ? 0 : (near.y ? 1 : 2);
+				vec3 move = inward[i] * (min_weights[i] - weights[i]) * heights[i];
+				for (int j = 0; j < 3; j++) {
+					weights[j] += dot(move, inward[j]) / heights[j];
+				}
+				// Near an acute vertex, the move can bring the sample nearer than the margin to a second edge.
+				near = lessThan(weights, min_weights);
+				near[i] = true;
+			}
+			if (int(near.x) + int(near.y) + int(near.z) >= 2) {
+				// Near a vertex, use the point at the margin from both edges. The far vertex takes the rest of the weight.
+				weights = mix(vec3(0.0), min_weights, near);
+				weights += (1.0 - dot(weights, vec3(1.0))) * vec3(not(near));
+				// Rounding can set all three edges near at the center of a small triangle. Keep the sum at 1.
+				weights /= dot(weights, vec3(1.0));
+			}
+			if (any(near)) {
+				vertex_pos = pos_a * weights.x + pos_b * weights.y + pos_c * weights.z;
+			}
+		}
+	}
 
 	if (fragment_action == FA_SMOOTHEN_POSITION) {
 		// smooth out vertex position by interpolating its projection in the 3 normal planes (normal plane is created by vertex pos and normal)
 		// because we don't want to interpolate inwards, normals found pointing inwards are pushed out.
-		vec3 pos_a = vertices.data[vertex_indices.x].position;
-		vec3 pos_b = vertices.data[vertex_indices.y].position;
-		vec3 pos_c = vertices.data[vertex_indices.z].position;
 		vec3 center = (pos_a + pos_b + pos_c) * 0.3333333;
 		vec3 norm_a = vec3(vertices.data[vertex_indices.x].normal_xy, vertices.data[vertex_indices.x].normal_z);
 		vec3 norm_b = vec3(vertices.data[vertex_indices.y].normal_xy, vertices.data[vertex_indices.y].normal_z);
@@ -140,7 +181,8 @@ void main() {
 		vec3 proj_b = vertex_pos - norm_b * (dot(norm_b, vertex_pos) - d_b);
 		vec3 proj_c = vertex_pos - norm_c * (dot(norm_c, vertex_pos) - d_c);
 
-		vec3 smooth_position = proj_a * barycentric.x + proj_b * barycentric.y + proj_c * barycentric.z;
+		// Use the weights of the sample after the edge margin, so that they agree with vertex_pos.
+		vec3 smooth_position = proj_a * weights.x + proj_b * weights.y + proj_c * weights.z;
 
 		if (dot(face_normal, smooth_position) > dot(face_normal, vertex_pos)) { //only project outwards
 			vertex_pos = smooth_position;
