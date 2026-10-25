@@ -859,6 +859,20 @@ vec3 trace_indirect_light(vec3 p_position, vec3 p_ray_dir, inout uint r_noise, f
 
 #endif
 
+#ifdef MODE_BOUNCE_LIGHT
+// The bounce passes add many small parts to a half-precision image. Some drivers round toward zero
+// when they store a half value. Over hundreds of passes, that loses a large part of the light.
+// So round to the nearest half-float value here. Below the half-float maximum, the stored value is then exact on every driver.
+vec3 round_to_half(vec3 p_value) {
+	// p_value = mantissa * 2^exponent with the mantissa in [0.5, 1), or both zero for zero.
+	ivec3 exponent;
+	frexp(p_value, exponent);
+	// A half-float value has 11 significant bits. Below 2^-14, the spacing stays at 2^-24.
+	ivec3 shift = max(exponent, ivec3(-13)) - 11;
+	return ldexp(roundEven(ldexp(p_value, -shift)), shift);
+}
+#endif
+
 void main() {
 	// Check if invocation is out of bounds.
 #ifdef MODE_LIGHT_PROBES
@@ -1007,16 +1021,17 @@ void main() {
 		vec3 light = trace_indirect_light(position, ray_dir, noise, texel_size_world_space);
 
 #ifdef USE_SH_LIGHTMAPS
-		// These coefficients include the factored out SH evaluation, diffuse convolution, and final application, as well as the BRDF 1/PI and the spherical monte carlo factor.
-		// LO: 1/(2*sqrtPI) * 1/(2*sqrtPI) * PI * PI * 1/PI = 0.25
-		// L1: sqrt(3/(4*pi)) * sqrt(3/(4*pi)) * (PI*2/3) * (2 * PI) * 1/PI = 1.0
-		// Note: This only works because we aren't scaling, rotating, or combing harmonics, we are just directing applying them in the shader.
+		// The rays are cosine-weighted, so each ray stands for light that already includes the cosine term.
+		// Store each ray like a direct light from its direction (see MODE_DIRECT_LIGHT).
+		// Then L0 + L1 . normal gives the plain average of the rays, the same value as a non-directional bake.
+		// The L1/L0 ratio of 4 is what the L1 packing expects. 4.0 * c_l0 is c_l1 / attenuation of the direct pass.
+		float c_l0 = 1.0 / (1.0 + 4.0 * max(dot(normal, ray_dir), 0.0));
 
 		float c[4] = float[](
-				0.25, //l0
-				ray_dir.y, //l1n1
-				ray_dir.z, //l1n0
-				ray_dir.x //l1p1
+				c_l0, //l0
+				4.0 * c_l0 * ray_dir.y, //l1n1
+				4.0 * c_l0 * ray_dir.z, //l1n0
+				4.0 * c_l0 * ray_dir.x //l1p1
 		);
 
 		for (uint j = 0; j < 4; j++) {
@@ -1031,12 +1046,12 @@ void main() {
 #ifdef USE_SH_LIGHTMAPS
 	for (int i = 0; i < 4; i++) {
 		vec4 accum = imageLoad(accum_light, ivec3(atlas_pos, params.atlas_slice * 4 + i));
-		accum.rgb += sh_accum[i].rgb / float(params.ray_count);
+		accum.rgb = round_to_half(accum.rgb + sh_accum[i].rgb / float(params.ray_count));
 		imageStore(accum_light, ivec3(atlas_pos, params.atlas_slice * 4 + i), accum);
 	}
 #else
 	vec4 accum = imageLoad(accum_light, ivec3(atlas_pos, params.atlas_slice));
-	accum.rgb += light_accum / float(params.ray_count);
+	accum.rgb = round_to_half(accum.rgb + light_accum / float(params.ray_count));
 	imageStore(accum_light, ivec3(atlas_pos, params.atlas_slice), accum);
 #endif
 
