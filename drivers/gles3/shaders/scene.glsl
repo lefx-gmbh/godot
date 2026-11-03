@@ -1109,8 +1109,6 @@ in highp vec4 shadow_coord4;
 
 #ifdef USE_RADIANCE_MAP
 
-#define RADIANCE_MAX_LOD 5.0
-
 uniform samplerCube radiance_map; // texunit:-2
 
 #endif // USE_RADIANCE_MAP

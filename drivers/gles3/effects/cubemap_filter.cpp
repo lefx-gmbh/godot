@@ -137,6 +137,9 @@ void CubemapFilter::filter_radiance(GLuint p_source_cubemap, GLuint p_dest_cubem
 		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 		// Copy over base layer without filtering.
 		mode = CubemapFilterShaderGLES3::MODE_COPY;
+	} else if (p_layer == p_mipmap_count - 1) {
+		// The last layer has roughness 1.0, a cosine lobe. Convolve it exactly instead of with GGX samples.
+		mode = CubemapFilterShaderGLES3::MODE_IRRADIANCE;
 	}
 
 	int size = p_source_size >> p_layer;
@@ -148,7 +151,21 @@ void CubemapFilter::filter_radiance(GLuint p_source_cubemap, GLuint p_dest_cubem
 		return;
 	}
 
-	if (p_layer > 0) {
+	if (mode == CubemapFilterShaderGLES3::MODE_IRRADIANCE) {
+		// Sum every texel of the smallest source mip that is at least 8 texels wide.
+		// glGenerateMipmap() averages sRGB encoded data in its encoded form, which makes small mips too dark.
+		// So sRGB encoded data uses a mip that is at least 16 texels wide.
+		const int min_source_size = p_linear ? 8 : 16;
+		int source_lod = 0;
+		while ((p_source_size >> (source_lod + 1)) >= min_source_size) {
+			source_lod++;
+		}
+		// A 4096 px probe asks for a level past the end of its mip chain. textureLod() clamps the level, so the
+		// average stays correct, but source_size is then smaller than the size of the level that the shader reads.
+		cubemap_filter.shader.version_set_uniform(CubemapFilterShaderGLES3::SOURCE_LOD, float(source_lod), cubemap_filter.shader_version, mode);
+		cubemap_filter.shader.version_set_uniform(CubemapFilterShaderGLES3::SOURCE_SIZE, p_source_size >> source_lod, cubemap_filter.shader_version, mode);
+		cubemap_filter.shader.version_set_uniform(CubemapFilterShaderGLES3::LINEAR_DATA, uint32_t(p_linear ? 1 : 0), cubemap_filter.shader_version, mode);
+	} else if (p_layer > 0) {
 		const uint32_t sample_counts[5] = { 1, ggx_samples / 16, ggx_samples / 8, ggx_samples / 4, ggx_samples };
 		uint32_t sample_count = sample_counts[MIN(4, p_layer)];
 
