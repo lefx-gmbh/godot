@@ -1732,7 +1732,8 @@ void RasterizerSceneGLES3::_setup_lights(const RenderDataGLES3 *p_render_data, b
 				}
 
 				// If a DirectionalLight has shadows, we will add it to the end of the array and work in.
-				bool has_shadow = light_storage->light_has_shadow(base);
+				// Without shadows in this render, the scene cull draws no directional shadow map either.
+				bool has_shadow = p_using_shadows && light_storage->light_has_shadow(base);
 
 				int index = r_directional_light_count - r_directional_shadow_count;
 
@@ -2428,6 +2429,12 @@ void RasterizerSceneGLES3::render_scene(const Ref<RenderSceneBuffers> &p_render_
 		}
 	}
 
+	if (is_reflection_probe) {
+		// A probe stores scene light. The surface that samples it applies exposure and tonemapping,
+		// so applying them here as well would apply them twice.
+		apply_environment_effects_in_post = true;
+	}
+
 	// Assign render data
 	// Use the format from rendererRD
 	RenderDataGLES3 render_data;
@@ -2516,7 +2523,7 @@ void RasterizerSceneGLES3::render_scene(const Ref<RenderSceneBuffers> &p_render_
 
 	SceneState::TonemapUBO tonemap_ubo;
 	if (render_data.environment.is_valid()) {
-		tonemap_ubo.exposure = environment_get_exposure(render_data.environment);
+		tonemap_ubo.exposure = is_reflection_probe ? 1.0f : environment_get_exposure(render_data.environment);
 		tonemap_ubo.tonemapper = int32_t(environment_get_tone_mapper(render_data.environment));
 		RendererEnvironmentStorage::TonemapParameters params = environment_get_tonemap_parameters(render_data.environment, false, 1.0f);
 		tonemap_ubo.tonemapper_params[0] = params.tonemapper_params[0];
@@ -2566,7 +2573,8 @@ void RasterizerSceneGLES3::render_scene(const Ref<RenderSceneBuffers> &p_render_
 	}
 	_render_shadows(&render_data, screen_size);
 
-	_setup_lights(&render_data, true, render_data.directional_light_count, render_data.omni_light_count, render_data.spot_light_count, render_data.area_light_count, render_data.directional_shadow_count);
+	// The scene cull draws shadows only with a shadow atlas. A reflection probe without shadows has none.
+	_setup_lights(&render_data, p_shadow_atlas.is_valid(), render_data.directional_light_count, render_data.omni_light_count, render_data.spot_light_count, render_data.area_light_count, render_data.directional_shadow_count);
 	_setup_environment(&render_data, is_reflection_probe, screen_size, flip_y, clear_color, false);
 
 	_fill_render_list(RENDER_LIST_OPAQUE, &render_data, PASS_MODE_COLOR);
