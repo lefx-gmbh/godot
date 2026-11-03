@@ -3,6 +3,7 @@
 
 mode_default =
 mode_copy = #define MODE_DIRECT_WRITE
+mode_irradiance = #define MODE_IRRADIANCE
 
 #[specializations]
 
@@ -30,10 +31,18 @@ uniform samplerCube source_cube; //texunit:0
 
 uniform int face_id;
 
-#ifndef MODE_DIRECT_WRITE
+#ifdef MODE_IRRADIANCE
+// The cosine convolution reads every texel of the source mip level source_lod.
+// source_size is its edge length in texels.
+uniform float source_lod;
+uniform int source_size;
+#endif
+#if !defined(MODE_DIRECT_WRITE) && !defined(MODE_IRRADIANCE)
 uniform uint sample_count;
 uniform vec4 sample_directions_mip[MAX_SAMPLE_COUNT];
 uniform float weight;
+#endif
+#ifndef MODE_DIRECT_WRITE
 // 1 for linear source data (the sky radiance), 0 for sRGB encoded data (a reflection probe)
 uniform uint linear_data;
 #endif
@@ -100,6 +109,39 @@ void main() {
 
 #ifdef MODE_DIRECT_WRITE
 	frag_color = vec4(textureLod(source_cube, N, 0.0).rgb, 1.0);
+#elif defined(MODE_IRRADIANCE)
+	vec3 sum = vec3(0.0);
+	float total = 0.0;
+	float texel = 2.0 / float(source_size);
+	for (int f = 0; f < 6; f++) {
+		// texelCoordToVec() returns normalize(face_axis + u * u_axis + v * v_axis). Get the three axes once per face.
+		vec3 face_axis = texelCoordToVec(vec2(0.0), f);
+		vec3 u_axis = texelCoordToVec(vec2(1.0, 0.0), f) * sqrt(2.0) - face_axis;
+		vec3 v_axis = texelCoordToVec(vec2(0.0, 1.0), f) * sqrt(2.0) - face_axis;
+		for (int y = 0; y < source_size; y++) {
+			for (int x = 0; x < source_size; x++) {
+				vec2 st = (vec2(float(x), float(y)) + 0.5) * texel - 1.0;
+				float t = 1.0 + dot(st, st);
+				float solid_angle = inversesqrt(t * t * t); // Relative to the texel area.
+				total += solid_angle;
+				vec3 L = (face_axis + st.x * u_axis + st.y * v_axis) * inversesqrt(t);
+				float NdotL = dot(N, L);
+				if (NdotL > 0.0) {
+					vec3 val = textureLod(source_cube, L, source_lod).rgb;
+					if (linear_data == 0u) {
+						val = srgb_to_linear(val);
+					}
+					sum += val * (NdotL * solid_angle);
+				}
+			}
+		}
+	}
+	// All texels together cover 4 pi. So 4 / total converts the sum to irradiance / pi.
+	sum *= 4.0 / total;
+	if (linear_data == 0u) {
+		sum = linear_to_srgb(sum);
+	}
+	frag_color = vec4(sum, 1.0);
 #else
 
 	vec4 sum = vec4(0.0);

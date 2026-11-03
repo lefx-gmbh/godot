@@ -803,6 +803,10 @@ protected:
 
 	/* Sky */
 
+	// The scene shader reads the sky radiance at this LOD for roughness 1.0 (RADIANCE_MAX_LOD).
+	// The sky radiance map has at most this many levels plus one, so its last level is roughness 1.0.
+	static constexpr int SKY_RADIANCE_MAX_LOD = 5;
+
 	struct SkyGlobals {
 		float fog_aerial_perspective = 0.0;
 		Color fog_light_color;

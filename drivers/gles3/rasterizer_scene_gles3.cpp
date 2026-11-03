@@ -646,11 +646,13 @@ void RasterizerSceneGLES3::_update_dirty_skys() {
 
 	while (sky) {
 		if (sky->radiance == 0) {
-			sky->mipmap_count = Image::get_image_required_mipmaps(sky->radiance_size, sky->radiance_size, Image::FORMAT_RGBA8) - 1;
+			const int full_count = Image::get_image_required_mipmaps(sky->radiance_size, sky->radiance_size, Image::FORMAT_RGBA8) - 1;
+			sky->mipmap_count = MIN(full_count, SKY_RADIANCE_MAX_LOD + 1);
 			// Left uninitialized, will attach a texture at render time
 			glGenFramebuffers(1, &sky->radiance_framebuffer);
 			sky->radiance = _init_radiance_texture(sky->radiance_size, sky->mipmap_count, "Sky radiance texture");
-			sky->raw_radiance = _init_radiance_texture(sky->radiance_size, sky->mipmap_count, "Sky raw radiance texture");
+			// The filter reads small mips of the raw radiance, so it keeps the full mip chain.
+			sky->raw_radiance = _init_radiance_texture(sky->radiance_size, full_count, "Sky raw radiance texture");
 		}
 
 		sky->reflection_dirty = true;
@@ -4750,6 +4752,7 @@ RasterizerSceneGLES3::RasterizerSceneGLES3() {
 		global_defines += "\n#define MAX_FORWARD_LIGHTS " + itos(config->max_lights_per_object) + "u\n";
 		global_defines += "\n#define MAX_ROUGHNESS_LOD " + itos(sky_globals.roughness_layers - 1) + ".0\n";
 		global_defines += "\n#define MAX_DECALS " + itos(config->max_decals) + "\n";
+		global_defines += "\n#define RADIANCE_MAX_LOD " + itos(SKY_RADIANCE_MAX_LOD) + ".0\n";
 
 		if (config->force_vertex_shading) {
 			global_defines += "\n#define USE_VERTEX_LIGHTING\n";
