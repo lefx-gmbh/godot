@@ -2791,7 +2791,10 @@ void main() {
 #endif // !FOG_DISABLED
 
 	// Tonemap before writing as we are writing to an sRGB framebuffer
+#ifndef BLEND_MUL
+	// A multiply-blended material outputs a transmittance, not light, so exposure must not scale it.
 	frag_color.rgb *= exposure;
+#endif
 #ifdef APPLY_TONEMAPPING
 	frag_color.rgb = apply_tonemapping(frag_color.rgb);
 #endif
