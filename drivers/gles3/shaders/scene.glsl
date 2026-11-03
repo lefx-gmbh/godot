@@ -2579,8 +2579,7 @@ void main() {
 		ref_vec = mix(ref_vec, indirect_normal, roughness * roughness);
 		float horizon = min(1.0 + dot(ref_vec, indirect_normal), 1.0);
 		ref_vec = mat3(scene_data_block.data.radiance_inverse_xform) * ref_vec;
-		specular_light = textureLod(radiance_map, ref_vec, sqrt(roughness) * RADIANCE_MAX_LOD).rgb;
-		specular_light = srgb_to_linear(specular_light);
+		specular_light = textureLod(radiance_map, ref_vec, sqrt(roughness) * RADIANCE_MAX_LOD).rgb; // Linear.
 		specular_light *= horizon * horizon;
 		specular_light *= scene_data_block.data.ambient_light_color_energy.a;
 	} else if (scene_data_block.data.use_reflection_color) {
@@ -2627,8 +2626,7 @@ void main() {
 #ifdef USE_RADIANCE_MAP
 		if (scene_data_block.data.use_ambient_cubemap) {
 			vec3 ambient_dir = mat3(scene_data_block.data.radiance_inverse_xform) * indirect_normal;
-			vec3 cubemap_ambient = textureLod(radiance_map, ambient_dir, RADIANCE_MAX_LOD).rgb;
-			cubemap_ambient = srgb_to_linear(cubemap_ambient);
+			vec3 cubemap_ambient = textureLod(radiance_map, ambient_dir, RADIANCE_MAX_LOD).rgb; // Linear.
 			ambient_light = mix(ambient_light, cubemap_ambient * scene_data_block.data.ambient_light_color_energy.a, scene_data_block.data.ambient_color_sky_mix);
 		}
 #endif // USE_RADIANCE_MAP

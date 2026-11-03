@@ -34,6 +34,8 @@ uniform int face_id;
 uniform uint sample_count;
 uniform vec4 sample_directions_mip[MAX_SAMPLE_COUNT];
 uniform float weight;
+// 1 for linear source data (the sky radiance), 0 for sRGB encoded data (a reflection probe)
+uniform uint linear_data;
 #endif
 
 in highp vec2 uv_interp;
@@ -112,13 +114,17 @@ void main() {
 		vec3 L = T * sample_direction_mip.xyz;
 		vec3 val = textureLod(source_cube, L, sample_direction_mip.w).rgb;
 		// Mix using linear
-		val = srgb_to_linear(val);
+		if (linear_data == 0u) {
+			val = srgb_to_linear(val);
+		}
 		sum.rgb += val * sample_direction_mip.z;
 	}
 
 	sum /= weight;
 
-	sum.rgb = linear_to_srgb(sum.rgb);
+	if (linear_data == 0u) {
+		sum.rgb = linear_to_srgb(sum.rgb);
+	}
 	frag_color = vec4(sum.rgb, 1.0);
 #endif
 }

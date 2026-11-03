@@ -126,7 +126,7 @@ Vector2 hammersley(uint32_t i, uint32_t N) {
 	return Vector2(float(i) / float(N), radical_inverse_vdC(i));
 }
 
-void CubemapFilter::filter_radiance(GLuint p_source_cubemap, GLuint p_dest_cubemap, GLuint p_dest_framebuffer, int p_source_size, int p_mipmap_count, int p_layer) {
+void CubemapFilter::filter_radiance(GLuint p_source_cubemap, GLuint p_dest_cubemap, GLuint p_dest_framebuffer, int p_source_size, int p_mipmap_count, int p_layer, bool p_linear) {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, p_source_cubemap);
 	glBindFramebuffer(GL_FRAMEBUFFER, p_dest_framebuffer);
@@ -192,6 +192,7 @@ void CubemapFilter::filter_radiance(GLuint p_source_cubemap, GLuint p_dest_cubem
 		glUniform4fv(cubemap_filter.shader.version_get_uniform(CubemapFilterShaderGLES3::SAMPLE_DIRECTIONS_MIP, cubemap_filter.shader_version, mode), sample_count, sample_directions.ptr());
 		cubemap_filter.shader.version_set_uniform(CubemapFilterShaderGLES3::WEIGHT, weight, cubemap_filter.shader_version, mode);
 		cubemap_filter.shader.version_set_uniform(CubemapFilterShaderGLES3::SAMPLE_COUNT, index, cubemap_filter.shader_version, mode);
+		cubemap_filter.shader.version_set_uniform(CubemapFilterShaderGLES3::LINEAR_DATA, uint32_t(p_linear ? 1 : 0), cubemap_filter.shader_version, mode);
 	}
 
 	for (int i = 0; i < 6; i++) {

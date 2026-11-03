@@ -606,14 +606,20 @@ void RasterizerSceneGLES3::_invalidate_sky(Sky *p_sky) {
 GLuint _init_radiance_texture(int p_size, int p_mipmaps, String p_name) {
 	GLuint radiance_id = 0;
 
+	// The sky radiance is linear. Half float keeps values above 1.0 (an HDR panorama) and dark detail.
+	// Without float render targets, fall back to 10-bit, which clips at 1.0.
+	const bool use_half_float = GLES3::Config::get_singleton()->float_texture_supported;
+	const GLenum internal_format = use_half_float ? GL_RGBA16F : GL_RGB10_A2;
+
 	glGenTextures(1, &radiance_id);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, radiance_id);
 #ifdef GL_API_ENABLED
 	if (RasterizerUtilGLES3::is_gles_over_gl()) {
 		//TODO, on low-end compare this to allocating each face of each mip individually
 		// see: https://www.khronos.org/registry/OpenGL-Refpages/es3.0/html/glTexStorage2D.xhtml
+		const GLenum type = use_half_float ? GL_HALF_FLOAT : GL_UNSIGNED_INT_2_10_10_10_REV;
 		for (int i = 0; i < 6; i++) {
-			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB10_A2, p_size, p_size, 0, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, nullptr);
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, internal_format, p_size, p_size, 0, GL_RGBA, type, nullptr);
 		}
 
 		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
@@ -621,7 +627,7 @@ GLuint _init_radiance_texture(int p_size, int p_mipmaps, String p_name) {
 #endif // GL_API_ENABLED
 #ifdef GLES_API_ENABLED
 	if (!RasterizerUtilGLES3::is_gles_over_gl()) {
-		glTexStorage2D(GL_TEXTURE_CUBE_MAP, p_mipmaps, GL_RGB10_A2, p_size, p_size);
+		glTexStorage2D(GL_TEXTURE_CUBE_MAP, p_mipmaps, internal_format, p_size, p_size);
 	}
 #endif // GLES_API_ENABLED
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -631,7 +637,7 @@ GLuint _init_radiance_texture(int p_size, int p_mipmaps, String p_name) {
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, p_mipmaps - 1);
 
-	GLES3::Utilities::get_singleton()->texture_allocated_data(radiance_id, Image::get_image_data_size(p_size, p_size, Image::FORMAT_RGBA8, true), p_name);
+	GLES3::Utilities::get_singleton()->texture_allocated_data(radiance_id, Image::get_image_data_size(p_size, p_size, use_half_float ? Image::FORMAT_RGBAH : Image::FORMAT_RGBA8, true), p_name);
 	return radiance_id;
 }
 
@@ -1061,10 +1067,10 @@ void RasterizerSceneGLES3::_update_sky_radiance(RID p_env, const Projection &p_p
 
 		if (update_single_frame) {
 			for (int i = 0; i < max_processing_layer; i++) {
-				cubemap_filter->filter_radiance(sky->raw_radiance, sky->radiance, sky->radiance_framebuffer, sky->radiance_size, sky->mipmap_count, i);
+				cubemap_filter->filter_radiance(sky->raw_radiance, sky->radiance, sky->radiance_framebuffer, sky->radiance_size, sky->mipmap_count, i, true);
 			}
 		} else {
-			cubemap_filter->filter_radiance(sky->raw_radiance, sky->radiance, sky->radiance_framebuffer, sky->radiance_size, sky->mipmap_count, 0); // Just copy over the first mipmap.
+			cubemap_filter->filter_radiance(sky->raw_radiance, sky->radiance, sky->radiance_framebuffer, sky->radiance_size, sky->mipmap_count, 0, true); // Just copy over the first mipmap.
 		}
 		sky->processing_layer = 1;
 		sky->baked_exposure = p_sky_energy_multiplier;
@@ -1075,7 +1081,7 @@ void RasterizerSceneGLES3::_update_sky_radiance(RID p_env, const Projection &p_p
 			scene_state.set_gl_cull_mode(RSE::CULL_MODE_DISABLED);
 			scene_state.enable_gl_blend(false);
 
-			cubemap_filter->filter_radiance(sky->raw_radiance, sky->radiance, sky->radiance_framebuffer, sky->radiance_size, sky->mipmap_count, sky->processing_layer);
+			cubemap_filter->filter_radiance(sky->raw_radiance, sky->radiance, sky->radiance_framebuffer, sky->radiance_size, sky->mipmap_count, sky->processing_layer, true);
 			sky->processing_layer++;
 		}
 	}

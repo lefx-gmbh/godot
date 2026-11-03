@@ -33,6 +33,7 @@
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
 #include "core/object/class_db.h"
+#include "core/os/os.h"
 #include "core/version.h"
 #include "scene/resources/texture.h"
 #include "servers/rendering/rendering_server.h"
@@ -409,11 +410,19 @@ ProceduralSkyMaterial::~ProceduralSkyMaterial() {
 
 void PanoramaSkyMaterial::set_panorama(const Ref<Texture2D> &p_panorama) {
 	panorama = p_panorama;
+	bool srgb_encode_hdr = false;
 	if (p_panorama.is_valid()) {
 		RS::get_singleton()->material_set_param(_get_material(), "source_panorama", p_panorama->get_rid());
+		// The Compatibility renderer decodes the sky shader output as sRGB. A float (HDR) panorama is linear,
+		// so the shader encodes it first. The decode then gives back the linear values, also above 1.0.
+		if (OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
+			const Image::Format format = RS::get_singleton()->texture_get_format(p_panorama->get_rid());
+			srgb_encode_hdr = (format >= Image::FORMAT_RF && format <= Image::FORMAT_RGBE9995) || format == Image::FORMAT_BPTC_RGBF || format == Image::FORMAT_BPTC_RGBFU || format == Image::FORMAT_ASTC_4x4_HDR || format == Image::FORMAT_ASTC_8x8_HDR;
+		}
 	} else {
 		RS::get_singleton()->material_set_param(_get_material(), "source_panorama", Variant());
 	}
+	RS::get_singleton()->material_set_param(_get_material(), "srgb_encode_hdr", srgb_encode_hdr);
 }
 
 Ref<Texture2D> PanoramaSkyMaterial::get_panorama() const {
@@ -501,9 +510,14 @@ shader_type sky;
 
 uniform sampler2D source_panorama : %s, source_color, hint_default_black;
 uniform float exposure : hint_range(0, 128) = 1.0;
+uniform bool srgb_encode_hdr = false; // Compatibility renderer with a float panorama only.
 
 void sky() {
-	COLOR = texture(source_panorama, SKY_COORDS).rgb * exposure;
+	vec3 color = texture(source_panorama, SKY_COORDS).rgb * exposure;
+	if (srgb_encode_hdr) {
+		color = mix(vec3(1.055) * pow(color, vec3(1.0 / 2.4)) - vec3(0.055), color * 12.92, lessThan(color, vec3(0.0031308)));
+	}
+	COLOR = color;
 }
 )",
 																		  p_filter ? "filter_linear" : "filter_nearest"));
