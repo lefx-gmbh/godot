@@ -138,6 +138,12 @@ multiview_data;
 
 layout(location = 0) out vec4 frag_color;
 
+// Exact sRGB decode. It is the inverse of the encode that PanoramaSkyMaterial applies to a linear (HDR) panorama.
+// The round trip gives back the linear values, also above 1.0.
+vec3 sky_srgb_to_linear(vec3 color) {
+	return mix(pow((color + vec3(0.055)) * (1.0 / 1.055), vec3(2.4)), color * (1.0 / 12.92), lessThan(color, vec3(0.04045)));
+}
+
 #ifdef USE_DEBANDING
 // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
 vec3 interleaved_gradient_noise(vec2 pos) {
@@ -254,7 +260,7 @@ void main() {
 	}
 
 	// Convert to Linear for tonemapping so color matches scene shader better
-	color = srgb_to_linear(color);
+	color = sky_srgb_to_linear(color);
 
 	color *= sky_energy_multiplier;
 
@@ -272,16 +278,19 @@ void main() {
 
 #endif // DISABLE_FOG
 
+#ifndef USE_CUBEMAP_PASS
+	// The radiance cubemap stays linear and without exposure: the scene shader applies the exposure.
 	color *= exposure;
 #ifdef APPLY_TONEMAPPING
 	color = apply_tonemapping(color);
 #endif
 	color = linear_to_srgb(color);
+#endif // !USE_CUBEMAP_PASS
 
 	frag_color.rgb = color * luminance_multiplier;
 	frag_color.a = alpha;
 
-#ifdef USE_DEBANDING
+#if defined(USE_DEBANDING) && !defined(USE_CUBEMAP_PASS)
 	frag_color.rgb += interleaved_gradient_noise(gl_FragCoord.xy) * sky_energy_multiplier * luminance_multiplier;
 #endif
 }
