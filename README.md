@@ -62,6 +62,7 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 | [Compatibility: multiply-blended materials are not scaled by exposure](fix-compat-multiply-exposure.md) | none found | `fix/compat-multiply-exposure` |
 | [Compatibility: sky light keeps its HDR values](fix-compat-sky-radiance-hdr.md) | none found | `fix/compat-sky-radiance-hdr` |
 | [Compatibility: reflection probes render without exposure and stale shadows](fix-compat-probe-capture.md) | none found | `fix/compat-probe-capture` |
+| [Compatibility: sky ambient light comes from the right direction](fix-compat-sky-ambient-direction.md) | none found | `fix/compat-sky-ambient-direction` |
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
