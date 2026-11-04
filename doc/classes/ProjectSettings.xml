@@ -3254,6 +3254,12 @@
 		<member name="rendering/reflections/reflection_atlas/reflection_size.mobile" type="int" setter="" getter="" default="128">
 			Lower-end override for [member rendering/reflections/reflection_atlas/reflection_size] on mobile devices, due to performance concerns or driver support.
 		</member>
+		<member name="rendering/reflections/sky_reflections/accurate_rough_reflections" type="bool" setter="" getter="" default="true">
+			If [code]true[/code], rough reflections of the [Sky] and of [ReflectionProbe]s are smoother and brighter, and closer to a path-traced reference. Two changes cause this. The filter that makes the radiance map selects the correct source mipmap for each sample, and it takes more samples for medium roughness. The environment BRDF approximation uses a better fit for rough materials, which affects rough metals most.
+			The filter reads about twice as many texels each time it updates the radiance map. This can make real-time skies with a large [member Sky.radiance_size] slower. The scene shader adds one multiply-add for each pixel. Reflection probes that do not use floating-point textures keep the previous filter.
+			If [code]false[/code], rough reflections look as in previous versions.
+			[b]Note:[/b] This setting is only used by the Compatibility renderer.
+		</member>
 		<member name="rendering/reflections/sky_reflections/fast_filter_high_quality" type="bool" setter="" getter="" default="false">
 			Use a higher quality variant of the fast filtering algorithm. Significantly slower than using default quality, but results in smoother reflections. Should only be used when the scene is especially detailed.
 		</member>

@@ -33,6 +33,7 @@
 #ifdef GLES3_ENABLED
 
 #include "core/config/project_settings.h"
+#include "drivers/gles3/storage/config.h"
 #include "drivers/gles3/storage/texture_storage.h"
 
 using namespace GLES3;
@@ -166,15 +167,22 @@ void CubemapFilter::filter_radiance(GLuint p_source_cubemap, GLuint p_dest_cubem
 		cubemap_filter.shader.version_set_uniform(CubemapFilterShaderGLES3::SOURCE_SIZE, p_source_size >> source_lod, cubemap_filter.shader_version, mode);
 		cubemap_filter.shader.version_set_uniform(CubemapFilterShaderGLES3::LINEAR_DATA, uint32_t(p_linear ? 1 : 0), cubemap_filter.shader_version, mode);
 	} else if (p_layer > 0) {
+		// The accurate filter compares the solid angle of a sample with a texel of the source, which the samples
+		// read, so it needs no mip bias. It needs more samples for the middle layers. sRGB encoded data keeps the
+		// old filter, because glGenerateMipmap() averages it in encoded form, which makes coarse mips too dark.
+		const bool accurate = p_linear && GLES3::Config::get_singleton()->accurate_rough_reflections;
 		const uint32_t sample_counts[5] = { 1, ggx_samples / 16, ggx_samples / 8, ggx_samples / 4, ggx_samples };
-		uint32_t sample_count = sample_counts[MIN(4, p_layer)];
+		const uint32_t accurate_sample_counts[5] = { 1, ggx_samples / 16, ggx_samples / 2, ggx_samples, ggx_samples };
+		uint32_t sample_count = (accurate ? accurate_sample_counts : sample_counts)[MIN(4, p_layer)];
 
 		float roughness = float(p_layer) / (p_mipmap_count - 1);
 		roughness *= roughness; // Convert to non-perceptual roughness.
 		float roughness4 = roughness * roughness;
 		roughness4 *= roughness4;
 
-		float solid_angle_texel = 4.0 * Math::PI / float(6 * size * size);
+		const int texel_size = accurate ? p_source_size : size;
+		float solid_angle_texel = 4.0 * Math::PI / float(6 * texel_size * texel_size);
+		const float mip_bias = accurate ? 0.0f : float(MAX(1, p_layer - 3));
 
 		LocalVector<float> sample_directions;
 		sample_directions.resize(4 * sample_count);
@@ -199,7 +207,7 @@ void CubemapFilter::filter_radiance(GLuint p_source_cubemap, GLuint p_dest_cubem
 
 			float solid_angle_sample = 1.0 / (float(sample_count) * pdf + 0.0001);
 
-			float mip_level = MAX(0.5 * std::log2(solid_angle_sample / solid_angle_texel) + float(MAX(1, p_layer - 3)), 1.0);
+			float mip_level = MAX(0.5 * std::log2(solid_angle_sample / solid_angle_texel) + mip_bias, 1.0);
 
 			sample_directions[index * 4 + 3] = mip_level;
 			weight += light_vec.z;

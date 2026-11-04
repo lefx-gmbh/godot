@@ -88,6 +88,7 @@ public:
 
 	bool force_vertex_shading = false;
 	bool specular_occlusion = false;
+	bool accurate_rough_reflections = true;
 
 	bool support_anisotropic_filter = false;
 	float anisotropic_level = 0.0f;
