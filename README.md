@@ -59,6 +59,7 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 | [FBX import respects `animation/import=false`](fix-fbx-animation-import-option.md) | none found | `fix/fbx-animation-import-option` |
 | [Baked lightmaps keep light out of closed corners](fix-lightmap-leaks-seams.md) | #117468 | `fix/lightmap-leaks-seams` |
 | [Directional lightmaps get the full bounce light](fix-lightmap-sh-bounce.md) | none found | `fix/lightmap-sh-bounce` |
+| [Compatibility: multiply-blended materials are not scaled by exposure](fix-compat-multiply-exposure.md) | none found | `fix/compat-multiply-exposure` |
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
