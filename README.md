@@ -58,6 +58,7 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 | [A NodePath to a property survives moving its node](fix-nodepath-subnames.md) | #122468 | `fix/nodepath-subnames` |
 | [FBX import respects `animation/import=false`](fix-fbx-animation-import-option.md) | none found | `fix/fbx-animation-import-option` |
 | [Compatibility: multiply-blended materials are not scaled by exposure](fix-compat-multiply-exposure.md) | none found | `fix/compat-multiply-exposure` |
+| [Compatibility: sky light keeps its HDR values](fix-compat-sky-radiance-hdr.md) | none found | `fix/compat-sky-radiance-hdr` |
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
