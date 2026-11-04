@@ -174,7 +174,8 @@ void CubemapFilter::filter_radiance(GLuint p_source_cubemap, GLuint p_dest_cubem
 		const bool accurate = p_linear && GLES3::Config::get_singleton()->accurate_rough_reflections;
 		const uint32_t sample_counts[5] = { 1, ggx_samples / 16, ggx_samples / 8, ggx_samples / 4, ggx_samples };
 		const uint32_t accurate_sample_counts[5] = { 1, ggx_samples / 16, ggx_samples / 2, ggx_samples, ggx_samples };
-		uint32_t sample_count = (accurate ? accurate_sample_counts : sample_counts)[MIN(4, p_layer)];
+		const int layer_index = MIN(4, p_layer);
+		const uint32_t sample_count = accurate ? accurate_sample_counts[layer_index] : sample_counts[layer_index];
 
 		float roughness = float(p_layer) / (p_mipmap_count - 1);
 		roughness *= roughness; // Convert to non-perceptual roughness.
