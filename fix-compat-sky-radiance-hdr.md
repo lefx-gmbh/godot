@@ -41,6 +41,7 @@ At exposure 0.5 the top of the sphere goes from 0.055 to 0.276 (reference 0.261)
 - Reflections are still darker than the reference next to bright areas (0.635 against 0.773), because the cubemap is coarse.
 - The chrome sphere reads the reflection probe. At exposure 0.5 the probe still applies the exposure twice (0.159 against 0.386). So the fix [Compatibility: reflection probes render without exposure and stale shadows](fix-compat-probe-capture.md) is also necessary.
 - A scene that made its sky brighter to make up for the fault looks brighter with this fix.
+- A light with shadows is still added in sRGB space in the Compatibility renderer, so the surfaces it lights are too bright. This fault is in Godot and is not fixed here. With correct sky light below it, the error gets larger. We measured a scene with a shadowed light, sky ambient light and exposure 0.5: the floor is 0.462 on an unchanged `master`, 0.823 with this fix, and 0.343 in the reference.
 
 ## Cost
 
