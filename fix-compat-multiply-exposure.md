@@ -10,7 +10,7 @@ You use the Compatibility renderer and a material with the blend mode **Multiply
 
 A multiply-blended material does not output light. Its colour is a factor that says how much of the light behind it passes through. The scene shader still multiplied that factor by the exposure, as it does for light. With an exposure below 1.0, the factor became too small.
 
-With glow on, the shader also multiplied the factor by the luminance multiplier. That is the second half of the same problem. Godot `master` fixed it in b90ae496cc: the shader skips that multiplication for multiply blending (the define `BLEND_MUL`). `fixes/4.7` carries a backport of that commit. This fix adds the same guard around the exposure line. File: `drivers/gles3/shaders/scene.glsl`.
+With glow on, the shader also multiplied the factor by the luminance multiplier. That is the second half of the same problem. Godot `master` fixed it in b90ae496cc by 1mpr00ve: the shader skips that multiplication for multiply blending (the define `BLEND_MUL`). Godot 4.7.2 does not have that commit, and this fix needs its define. So `fixes/4.7` carries it unchanged, as its own commit, with its author. This fix adds the same guard around the exposure line. File: `drivers/gles3/shaders/scene.glsl`.
 
 ## Measured
 

@@ -13,7 +13,7 @@ The renderer bakes the sky into a cubemap (the radiance map) that ambient light 
 - The map was `GL_RGB10_A2`. It clips at 1.0, so the bright parts of an HDR panorama were lost. In the studio HDRI we tested, 16.5 % of the pixels are above 1.0.
 - `sky.glsl` decoded the sky output as sRGB. That is right for an 8-bit panorama. A float panorama is already linear, so dark values became much darker (0.06 became about 0.005).
 - The bake multiplied by the exposure, and the scene shader multiplied by it again. Sky light scaled with the exposure squared.
-- `background_energy_multiplier` was applied before the sRGB decode, so it acted like a power of about 3.2. Godot `master` fixed this in 50238693ef. The 4.7 commit backports that part: the multiplier now comes after the decode.
+- `background_energy_multiplier` was applied before the sRGB decode, so it acted like a power of about 3.2. Godot `master` fixed this in 50238693ef by Kaleb Reid. The 4.7 commit backports that part: the multiplier now comes after the decode. The rest of 50238693ef (the background colour energy in all renderers) is not in `fixes/4.7`, because it changes how existing 4.7 projects look.
 - The filter that makes the blurry levels averaged sRGB values. Small bright lights can fade out. We found this in the source and did not measure it alone.
 
 The radiance map is now `GL_RGBA16F` and holds linear values. A GPU that cannot render to float textures keeps the old `GL_RGB10_A2`. The sky shader writes linear values to the map, without exposure and without the sRGB encode. The filter takes a flag for linear data and averages linear values. Reflection probes keep the old sRGB filter path.
@@ -42,6 +42,7 @@ At exposure 0.5 the top of the sphere goes from 0.055 to 0.276 (reference 0.261)
 - Reflections are still darker than the reference next to bright areas (0.635 against 0.773), because the cubemap is coarse.
 - The chrome sphere reads the reflection probe. At exposure 0.5 the probe still applies the exposure twice (0.159 against 0.386). So the fix [Compatibility: reflection probes render without exposure and stale shadows](fix-compat-probe-capture.md) is also necessary.
 - A scene that made its sky brighter to make up for the fault looks brighter with this fix.
+- A light with shadows is still added in sRGB space in the Compatibility renderer, so the surfaces it lights are too bright. This fault is in Godot and is not fixed here. With correct sky light below it, the error gets larger. We measured a scene with a shadowed light, sky ambient light and exposure 0.5: the floor is 0.462 on an unchanged `master`, 0.823 with this fix, and 0.343 in the reference.
 
 ## Cost
 

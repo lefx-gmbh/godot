@@ -21,7 +21,7 @@ Files: `drivers/gles3/effects/cubemap_filter.cpp`, `drivers/gles3/rasterizer_sce
 
 ## Measured
 
-We measured this fix on Godot 4.7.2, with the sky radiance fix in both builds. We did not measure it on `master`. The scene has a white sphere and a floor under a studio HDRI, no lights, Linear tonemap, exposure 1. The reference is a path-traced render (Blender Cycles, direct light). Values are the ratio to the reference, linear, the mean of the RGB channels over a region:
+We measured this fix on Godot 4.7.2, with the sky radiance fix in both builds. On `master` we measured `fixes/master` in the same scene and got the same values as in the column "This fix": sphere side 1.05, sphere top 0.99, floor 1.06. An unchanged `master` does not have the sky radiance fix, so it cannot give the column "Before this fix". The scene has a white sphere and a floor under a studio HDRI, no lights, Linear tonemap, exposure 1. The reference is a path-traced render (Blender Cycles, direct light). Values are the ratio to the reference, linear, the mean of the RGB channels over a region:
 
 | Region | Before this fix | This fix | Forward+ |
 | --- | ---: | ---: | ---: |
