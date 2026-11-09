@@ -2487,6 +2487,9 @@ void DisplayServerX11::window_set_transient(DisplayServerEnums::WindowID p_windo
 			if ((xwa.map_state == IsViewable) && !wd_parent.no_focus && !wd_window.is_popup && _window_focus_check()) {
 				_set_input_focus(wd_parent.x11_window, RevertToPointerRoot);
 			}
+		} else if (wd_window.focused && wd_window.ime_active && wd_parent.is_popup && (xwa.map_state == IsViewable)) {
+			// Popups are not managed by the window manager, so focus taken by the IME window of a nested popup (e.g. its search bar) has to be returned to the parent popup manually.
+			_set_input_focus(wd_parent.x11_window, RevertToPointerRoot);
 		}
 	} else {
 		ERR_FAIL_COND(!windows.has(p_parent));
@@ -3746,6 +3749,12 @@ void DisplayServerX11::cursor_set_custom_image(const Ref<Resource> &p_cursor, Di
 		current_cursor = DisplayServerEnums::CURSOR_MAX;
 		cursor_set_shape(c);
 	}
+}
+
+void DisplayServerX11::cursor_clear_custom_image_cache() {
+	_THREAD_SAFE_METHOD_
+
+	cursors_cache.clear();
 }
 
 bool DisplayServerX11::get_swap_cancel_ok() {
