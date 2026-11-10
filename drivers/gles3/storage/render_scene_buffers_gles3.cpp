@@ -199,6 +199,11 @@ void RenderSceneBuffersGLES3::_check_render_buffers() {
 	bool use_multiview = view_count > 1;
 
 	if (!use_internal_buffer && internal3d.color != 0) {
+		// The render-to-texture MSAA framebuffer has the internal textures attached, so it must go with them.
+		// An MSAA framebuffer that resolves has storage of its own and stays.
+		if (!msaa3d.needs_resolve) {
+			_clear_msaa3d_buffers();
+		}
 		_clear_intermediate_buffers();
 	}
 
