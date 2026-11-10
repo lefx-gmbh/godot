@@ -64,10 +64,11 @@ Each fix has a page with the problem, the cause, the Godot issues we measured, a
 | [Compatibility: reflection probes render without exposure and stale shadows](fix-compat-probe-capture.md) | none found | `fix/compat-probe-capture` |
 | [Compatibility: sky ambient light comes from the right direction](fix-compat-sky-ambient-direction.md) | none found | `fix/compat-sky-ambient-direction` |
 | [Compatibility: rough reflections are smooth and bright](fix-compat-rough-reflection.md) | none found | `fix/compat-rough-reflection` |
+| [Compatibility: the image does not freeze when post effects turn off with MSAA](fix-compat-msaa-frozen-output.md) | none found | `fix/compat-msaa-frozen-output` |
 
 We list a Godot issue only when we rebuilt it and it fails on an unchanged build of the same commit. Other reports can describe the same symptoms. We make no claim about them.
 
-We measured the issues on Godot `master`. We measured them again on `4.7.2-stable` for the fixes in `fixes/4.7`. Each of those issues fails on the unchanged 4.7.2 build and passes on `fixes/4.7`. The two lightmap fixes are not in `fixes/4.7` yet.
+We measured the issues on Godot `master`. We measured them again on `4.7.2-stable` for the fixes in `fixes/4.7`. Each of those issues fails on the unchanged 4.7.2 build and passes on `fixes/4.7`. The two lightmap fixes are not in `fixes/4.7` yet. The frozen output fix is not needed there, because 4.7.2 does not have its cause.
 
 ## Build
 
